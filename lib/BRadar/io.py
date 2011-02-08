@@ -111,24 +111,24 @@ def LoadPAR_lipn(filename) :
                         20*np.log10(ranges[np.newaxis, :] / 1000.0) +
                         nc.SNRdBtodBZ))
 
-      (rangeGrid, aziGrid) = np.meshgrid(ranges, azimuths)
+    (rangeGrid, aziGrid) = np.meshgrid(ranges, azimuths)
 
-      gateLength = nc.GateSize
+    gateLength = nc.GateSize
       
-      elevAngle = nc.Elevation
-      statLat = nc.Latitude
-      statLon = nc.Longitude
-      scanTime = nc.ScanTimeUTC
+    elevAngle = nc.Elevation
+    statLat = nc.Latitude
+    statLon = nc.Longitude
+    scanTime = nc.ScanTimeUTC
       
-      nc.close()
+    nc.close()
 
-      return {'vals': parData,
-	          'azimuth': aziGrid, 'range_gate': rangeGrid,
-              'elev_angle': elevAngle,
-	          'stat_lat': statLat, 'stat_lon': statLon,
-              'scan_time': scanTime, 'var_name': varName,
-	          'gate_length': gateLength,
-              'beam_width': 1.0}
+    return {'vals': parData,
+	        'azimuth': aziGrid, 'range_gate': rangeGrid,
+            'elev_angle': elevAngle,
+	        'stat_lat': statLat, 'stat_lon': statLon,
+            'scan_time': scanTime, 'var_name': varName,
+	        'gate_length': gateLength,
+            'beam_width': 1.0}
 
 
 

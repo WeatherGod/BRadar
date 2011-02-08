@@ -128,9 +128,11 @@ def makerefmat(crnrlon, crnrlat, dx, dy) :
 
 
 def map2pix(refMat, X, Y) :
-    [col, row] = np.linalg.solve(refMat[0:2, :].T,
+    (col, row) = np.linalg.solve(refMat[0:2, :].T,
                      np.array([X.flat - refMat[2, 0], Y.flat - refMat[2, 1]]))
-    return (row.shape = Y.shape, col.shape = X.shape)
+    row.shape = Y.shape
+    col.shape = X.shape
+    return (row, col)
 
 def latlon2pix(refMat, lat, lon) :
     # The following is a bit convoluded, but it is to get rid
