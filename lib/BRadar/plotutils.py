@@ -69,14 +69,13 @@ def MakeReflectColorbar(ax=None, colorbarLabel="Reflectivity [dBZ]", **kwargs) :
     return cbar
 
 
-# Maybe this should go into MapUtils?
 def TightBounds(lons, lats, vals) :
     badVals = np.isnan(vals)
     lats_masked = np.ma.masked_array(lats, mask=badVals)
     lons_masked = np.ma.masked_array(lons, mask=badVals)
-    minLat = min(lats_masked)
-    maxLat = max(lats_masked)
-    minLon = min(lons_masked)
-    maxLon = max(lons_masked)
+    minLat = lats_masked.min()
+    maxLat = lats_masked.max()
+    minLon = lons_masked.min()
+    maxLon = lons_masked.max()
     return {'minLat': minLat, 'minLon': minLon, 'maxLat': maxLat, 'maxLon': maxLon}
 
