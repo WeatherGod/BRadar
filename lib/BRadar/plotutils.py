@@ -5,20 +5,27 @@ import matplotlib.pyplot as plt
 import ctables		# for color table for reflectivities
 
 
-def MakePPI(x, y, vals, norm, ref_table, axis=None, mask=None, 
+def MakePPI(x, y, vals, norm, ref_table, ax=None, mask=None, 
             rasterized=False, **kwargs):
     # It would be best if x and y were parallel arrays to vals.
     # I haven't tried to see what would happen if they were just 1-D arrays each...
-    if axis is None :
-        axis = plt.gca()
+    if ax is None :
+        ax = plt.gca()
 
     if mask is None :
         mask = np.isnan(vals)
     
-    thePlot = axis.pcolor(x, y,
-                        np.ma.masked_array(vals, mask=mask),
-                        cmap=ref_table, norm=norm, **kwargs)
-    thePlot.set_rasterized(rasterized)
+    #print(x.ndim, y.ndim)
+#    thePlot = ax.pcolor(x, y,
+#                        np.ma.masked_array(vals, mask=mask),
+#                        cmap=ref_table, norm=norm, **kwargs)
+#    thePlot.set_rasterized(rasterized)
+    extent=(x.min(), x.max(), y.min(), y.max())
+    thePlot = ax.imshow(vals,#np.ma.masked_array(vals, mask=mask),
+                        cmap=ref_table, norm=norm,
+                        interpolation='nearest', origin='lower',
+                        extent=extent,
+                        **kwargs)
 
     return thePlot
 
@@ -37,21 +44,21 @@ NWS_Reflect = {'ref_table': reflect_cmap,
                reflect_cmap.N, clip=False)}
 
 
-def MakeReflectPPI(vals, lats, lons, axis=None, axis_labels=True, colorbar=True, **kwargs) :
+def MakeReflectPPI(vals, lats, lons, ax=None, cax=None, axis_labels=True, colorbar=True, **kwargs) :
     # The Lats and Lons should be parallel arrays to vals.
-    if axis is None :
-       axis = plt.gca()
+    if ax is None :
+       ax = plt.gca()
 
     thePlot = MakePPI(lons, lats, vals, NWS_Reflect['norm'], NWS_Reflect['ref_table'],
-                      axis=axis, **kwargs)
+                      ax=ax, **kwargs)
 
     # I am still not quite sure if this is the best place for this, but oh well...
     if axis_labels : 
-       axis.set_xlabel("Longitude [deg]")
-       axis.set_ylabel("Latitude [deg]")
+       ax.set_xlabel("Longitude [deg]")
+       ax.set_ylabel("Latitude [deg]")
 
-    if colorbar :
-        MakeReflectColorbar(axis)
+    if colorbar and cax is not None:
+        MakeReflectColorbar(cax)
 
     return thePlot
 

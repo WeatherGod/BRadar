@@ -133,15 +133,18 @@ def LoadPAR_lipn(filename) :
 
 
                                          
-def SavePAR_NetCDF(filename, rastPAR, latAxis, lonAxis, scanTime, varName) :
+def SaveRastRadar(filename, rastData, latAxis, lonAxis,
+                  scanTime, varName, station) :
     """
     For saving radar data stored in Lat/Lon coordinates.
     """
     nc = netcdf.netcdf_file(filename, 'w')
     
     # Setting Global Attribute
-    nc.title = ('Rasterized PAR ' + varName + ' '
-                + datetime.datetime.utcfromtimestamp(scanTime).strftime('%H:%M:%S UTC %m/%d/%Y'))
+    nc.title = 'Rasterized %s %s %s' % (station, varName, 
+                datetime.datetime.utcfromtimestamp(scanTime).strftime('%H:%M:%S UTC %m/%d/%Y'))
+    nc.varName = var_name
+    nc.station = station
     
     # Setting the dimensions
     nc.createDimension('lat', len(latAxis))
@@ -150,8 +153,8 @@ def SavePAR_NetCDF(filename, rastPAR, latAxis, lonAxis, scanTime, varName) :
     
     # Setting the variables
     valueVar = nc.createVariable('value', 'f', ('time', 'lat', 'lon'))
-    valueVar.long_name = 'Rasterized PAR ' + varName
-    valueVar[:] = rastPAR.reshape((1, len(latAxis), len(lonAxis)))
+    valueVar.long_name = 'Rasterized ' + varName
+    valueVar[:] = rastData.reshape((1, len(latAxis), len(lonAxis)))
     
     latVar = nc.createVariable('lat', 'f', ('lat',))
     latVar.units = 'degrees_north'
@@ -175,6 +178,15 @@ def LoadRastRadar(infilename) :
 
     # Correction for older rasterized files that used the wrong term.
     titleStr = (nc.title).replace("Rastified", "Rasterized")
+    try :
+        varName = nc.varName
+    except :
+        varName = "Reflectivity"
+
+    try :
+        station = nc.station
+    except :
+        station = "NWRT"
 
     lats = nc.variables['lat'][:]
     lons = nc.variables['lon'][:]
@@ -184,6 +196,7 @@ def LoadRastRadar(infilename) :
     nc.close()
 
     return {'title': titleStr, 'lats': lats, 'lons': lons,
-            'vals': vals, 'scan_time': timestamp}
+            'vals': vals, 'scan_time': timestamp,
+            'var_name': varName, 'station': station}
 
 
