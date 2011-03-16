@@ -7,7 +7,7 @@ Author: Ben Root
 Copyright: Public Domain
 """
 
-def ByType(siteTypes, sites):
+def ByType(siteTypes, sites=None):
     """
     Returns the radarSites list with only the sites
     whose TYPE matches one of the given 'siteTypes'. Not giving
@@ -22,9 +22,12 @@ def ByType(siteTypes, sites):
 
     researchSites = radar.ByType(['2POL', 'CASA', 'NWRT'], radar.Sites)
     """
+    if sites is None :
+        sites = Sites
+
     return [rec for rec in sites if rec['TYPE'] in siteTypes]
 
-def ByName(siteNames, sites):
+def ByName(siteNames, sites=None):
     """
     Returns the radarSites list with only the sites
     whose sitename matches one of the given 'siteNames'. Not giving
@@ -40,17 +43,28 @@ def ByName(siteNames, sites):
     researchSites = radar.ByType(['2POL', 'CASA', 'NWRT'], radar.Sites)
     others = radar.ByName(['KLWE', 'KSAO', 'KRSP'], researchSites)
     """
+    if sites is None :
+        sites = Sites
 
     return [rec for rec in sites if rec['SITE'] in siteNames]
 
-def Matricized(sites):
-    return {'SITE': [rec['SITE'] for rec in sites], 'LAT': [rec['LAT'] for rec in sites], 
-	    'LON': [rec['LON'] for rec in sites], 'TYPE': [rec['TYPE'] for rec in sites]}
+def Matricized(sites=None):
+    if sites is None :
+        sites = Sites
 
-def AllNames(sites):
+    return {'SITE': [rec['SITE'] for rec in sites], 'LAT': [rec['LAT'] for rec in sites], 
+            'LON': [rec['LON'] for rec in sites], 'TYPE': [rec['TYPE'] for rec in sites]}
+
+def AllNames(sites=None):
+    if sites is None :
+        sites = Sites
+
     return [rec['SITE'] for rec in sites]
 
-def AllTypes(sites):
+def AllTypes(sites=None):
+    if sites is None :
+        sites = Sites
+
     return list(set([rec['TYPE'] for rec in sites]))
 
 
