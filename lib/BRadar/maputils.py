@@ -19,12 +19,12 @@ def PlotMapLayers(map, layerOptions, axis=None):
         if layer[0] == 'states' :
             map.drawstates(ax=axis, **layer[1])
         elif layer[0] == 'counties' :
-            map.readshapefile(os.path.sep.join([os.path.dirname(os.path.abspath(__file__)), 'shapefiles', 'countyp020']),
+            map.readshapefile(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'shapefiles', 'countyp020'),
                               name='counties', ax=axis, **layer[1])
         elif layer[0] == 'rivers' :
             map.drawrivers(ax=axis, **layer[1])
         elif layer[0] == 'roads' :
-            map.readshapefile(os.sep.join([os.path.dirname(os.path.abspath(__file__)), 'shapefiles', 'road_l']),
+            map.readshapefile(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'shapefiles', 'road_l'),
                               name='road', ax=axis, **layer[1])
         elif layer[0] == 'countries':
             map.drawcountries(ax=axis, **layer[1])
