@@ -130,7 +130,55 @@ def LoadPAR_lipn(filename) :
 	        'gate_length': gateLength,
             'beam_width': 1.0}
 
+def LoadLevel2(filename) :
+    """
+    This function will load the netcdf export of a Level II radar
+    data file.  The netcdf file assumes the "_Coordinates" convention
+    with the "ARCHIVE2" format and "RADIAL" cdm_data_type.
+    """
+    nc = netcdf.netcdf_file(filename, 'r')
 
+    varName = 'Reflectivity'
+    azimuths = nc.variables['azimuthR'][:]      # (scanR, radialR)
+    ranges = nc.variables['distanceR'][:]       # (gateR)  already in meters
+    elevAngle = nc.variables['elevationR'][:]   # (scanR, radialR)
+
+    # Each scan is a different elevation angle, but elevationR
+    # records a higher precision elevation angle for each dwell.
+    # We don't need that.
+    # elevGrid will be 3-D, (elev, azi, range)
+    elevGrid = np.mean(elevAngle, axis=1)[:, np.newaxis, np.newaxis]
+    
+    aziArgs = np.argsort(azimuths)      # Sort the azimuths for each scan
+    # aziGrid is 3-D (elev, azi, range)
+    aziGrid = np.array([azimuths[scan, aziArgs[scan, :]] for
+                        scan in range(azimuths.shape[0])])[..., np.newaxis]
+
+
+    varData = ((nc.variables['Reflectivity'][:] +
+                nc.variables['Reflectivity'].add_offset) *
+               nc.variables['Reflectivity'].scale_factor)     # (scanR, radialR, gateR)
+
+    # varData is 3-D (elev, azi, range)
+    varData = np.array([varData[scan, aziArgs[scan, :], :] for
+                        scan in range(azimuths.shape[0])])
+
+    statLat = np.nan
+    statLon = np.nan
+    gateLength = np.median(np.diff(ranges))
+    scanTime = 0#datetime.datetime.utcfromtimestamp(nc.time_coverage_start)
+    # Yes, I know it is spelled wrong, but this is how it is spelled in the metadata...
+    beamWidth = nc.HorizonatalBeamWidthInDegrees
+    nc.close()
+
+    return {'vals': varData,
+            'azimuth': aziGrid,
+            'range_gate': ranges[np.newaxis, np.newaxis, :],
+            'elev_angle': elevGrid,
+            'stat_lat': statLat, 'stat_lon': statLon,
+            'scan_time': scanTime, 'var_name': varName,
+            'gate_length': gateLength,
+            'beam_width': beamWidth}
 
                                          
 def SaveRastRadar(filename, rastData, latAxis, lonAxis,
