@@ -136,6 +136,8 @@ def LoadLevel2(filename) :
     data file.  The netcdf file assumes the "_Coordinates" convention
     with the "ARCHIVE2" format and "RADIAL" cdm_data_type.
     """
+    from BRadar.radarsites import ByName
+
     nc = netcdf.netcdf_file(filename, 'r')
 
     varName = 'Reflectivity'
@@ -146,35 +148,47 @@ def LoadLevel2(filename) :
     # Each scan is a different elevation angle, but elevationR
     # records a higher precision elevation angle for each dwell.
     # We don't need that.
-    # elevGrid will be 3-D, (elev, azi, range)
-    elevGrid = np.mean(elevAngle, axis=1)[:, np.newaxis, np.newaxis]
+    # elevAngle will be 3-D, (elev, azi, range)
+    elevAngle = np.mean(elevAngle, axis=1)[:, np.newaxis, np.newaxis]
     
     aziArgs = np.argsort(azimuths)      # Sort the azimuths for each scan
-    # aziGrid is 3-D (elev, azi, range)
-    aziGrid = np.array([azimuths[scan, aziArgs[scan, :]] for
-                        scan in range(azimuths.shape[0])])[..., np.newaxis]
+    # azimuths is 3-D (elev, azi, range)
+    azimuths = np.array([azimuths[scan, aziArgs[scan, :]] for
+                         scan in range(azimuths.shape[0])])[..., np.newaxis]
 
 
-    varData = ((nc.variables['Reflectivity'][:] +
-                nc.variables['Reflectivity'].add_offset) *
-               nc.variables['Reflectivity'].scale_factor)     # (scanR, radialR, gateR)
+    if nc.variables[varName]._Unsigned == 'true' :
+        datavals = nc.variables[varName][:].view(dtype=np.uint8)
+    else :
+        datavals = nc.variables[varName][:]
 
-    # varData is 3-D (elev, azi, range)
+    varData = ((datavals *
+                nc.variables[varName].scale_factor) +
+               nc.variables[varName].add_offset)     # (scanR, radialR, gateR)
+    #varData = np.where(datavals == nc.variables[varName].missing_value[0]
+    #                  |datavals == nc.variables[varName].missing_value[1],
+    #                   np.nan, varData) 
+
+    # re-arrange varData that it is 3-D (elev, azi, range)
     varData = np.array([varData[scan, aziArgs[scan, :], :] for
-                        scan in range(azimuths.shape[0])])
+                        scan in range(varData.shape[0])])
 
-    statLat = np.nan
-    statLon = np.nan
+    # TODO: Temporary kludge until the station name is fixed in the file.
+    from os.path import basename
+    siteLoc = ByName(basename(filename)[0:4])
+
+    statLat = siteLoc[0]['LAT']
+    statLon = siteLoc[0]['LON']
     gateLength = np.median(np.diff(ranges))
-    scanTime = 0#datetime.datetime.utcfromtimestamp(nc.time_coverage_start)
+    scanTime = datetime.datetime.strptime(nc.time_coverage_start, "%Y-%m-%dT%H:%M:%SZ")
     # Yes, I know it is spelled wrong, but this is how it is spelled in the metadata...
     beamWidth = nc.HorizonatalBeamWidthInDegrees
     nc.close()
 
     return {'vals': varData,
-            'azimuth': aziGrid,
+            'azimuth': azimuths,
             'range_gate': ranges[np.newaxis, np.newaxis, :],
-            'elev_angle': elevGrid,
+            'elev_angle': elevAngle,
             'stat_lat': statLat, 'stat_lon': statLon,
             'scan_time': scanTime, 'var_name': varName,
             'gate_length': gateLength,
