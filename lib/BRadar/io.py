@@ -205,7 +205,7 @@ def SaveRastRadar(filename, rastData, latAxis, lonAxis,
     # Setting Global Attribute
     nc.title = 'Rasterized %s %s %s' % (station, varName, 
                 datetime.datetime.utcfromtimestamp(scanTime).strftime('%H:%M:%S UTC %m/%d/%Y'))
-    nc.varName = var_name
+    nc.varName = varName
     nc.station = station
     
     # Setting the dimensions
@@ -226,7 +226,7 @@ def SaveRastRadar(filename, rastData, latAxis, lonAxis,
     lonVar = nc.createVariable('lon', 'f', ('lon',))
     lonVar.units = 'degrees_east'
     lonVar.spacing = np.diff(lonAxis).mean()
-    lonVar = lonAxis
+    lonVar[:] = lonAxis
     
     timeVar = nc.createVariable('time', 'i', ('time',))
     timeVar.units = 'seconds since 1970-1-1'
