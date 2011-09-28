@@ -110,6 +110,18 @@ def LatLonFrom(fromLat, fromLon, dist, azi, radius=6367470.0) :
 
     return (np.degrees(toLat), np.degrees(toLon))
 
+def LonLat2Cart(st_lon, st_lat, lons, lats) :
+    """
+    Return the cartesian coordinates in km relative to
+    *st_lon* and *st_lat*.
+    """
+    dists = GreatCircleDist(st_lon, st_lat, lons, lats)
+    bearings = Bearing(st_lon, st_lat, lons, lats)
+    xs = dists * np.sin(bearings) / 1000.0
+    ys = dists * np.cos(bearings) / 1000.0
+
+    return xs, ys
+
 def npi2pi(inAngle) :
     return (np.pi * ((np.abs(inAngle)/np.pi) -
                     2.0*np.ceil(((np.abs(inAngle)/np.pi)-1.0)/2.0)) *

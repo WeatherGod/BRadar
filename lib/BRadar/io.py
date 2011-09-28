@@ -243,7 +243,11 @@ def LoadRastRadar(infilename) :
     try :
         varName = nc.varName
     except :
-        varName = "Reflectivity"
+        if "Reflectivity" in nc.variables :
+            varName = "Reflectivity"
+        else :
+            # Fall back to "value"
+            varName = "value"
 
     try :
         station = nc.station
@@ -252,7 +256,7 @@ def LoadRastRadar(infilename) :
 
     lats = nc.variables['lat'][:]
     lons = nc.variables['lon'][:]
-    vals = nc.variables['value'][:]
+    vals = nc.variables[varName][:]
     timestamp = nc.variables['time'][0]
 
     nc.close()

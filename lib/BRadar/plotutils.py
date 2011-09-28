@@ -6,7 +6,28 @@ import ctables		# for color table for reflectivities
 
 
 def MakePPI(x, y, vals, norm, ref_table, ax=None, mask=None, 
-            rasterized=False, **kwargs):
+            rasterized=False, meth='pcmesh', **kwargs):
+    """
+    Make a PPI plot at coordinates of *x*, *y* using *vals*.
+    Colors are determined by the *norm* and *ref_table*.
+
+    The function will automatically convert the *vals* array
+    into a masked_array if there are NaNs and no *mask* is
+    provided.
+
+    *meth*      ['pc'|'pcmesh'|'im']
+        Plotting method to use (pcolor, pcolormesh, imshow).
+        pcolor() ('pc') works for the most generic case of arbitrary
+        coordinates, but can be inefficient for regular domains.
+        pcolormesh() ('pcmesh') can be more efficient, but assumes regular
+        domains.
+        imshow() ('im') is very efficient for rectilinear domains.
+
+    Additional kwargs are passed to the plotting function.
+
+    Returns the plotted object.
+
+    """
     # It would be best if x and y were parallel arrays to vals.
     # I haven't tried to see what would happen if they were just 1-D arrays each...
     if ax is None :
@@ -14,19 +35,30 @@ def MakePPI(x, y, vals, norm, ref_table, ax=None, mask=None,
 
     if mask is None :
         mask = np.isnan(vals)
+
+    # If vals is already a masked array, then the
+    # final mask is the or'd of *mask* and the array's
+    # existing mask.
+    maskedVals = np.ma.masked_array(vals, mask=mask)
     
     #print(x.ndim, y.ndim)
-#    thePlot = ax.pcolor(x, y,
-#                        np.ma.masked_array(vals, mask=mask),
-#                        cmap=ref_table, norm=norm, **kwargs)
-#    thePlot.set_rasterized(rasterized)
-    extent=(x.min(), x.max(), y.min(), y.max())
-    thePlot = ax.imshow(vals,#np.ma.masked_array(vals, mask=mask),
+    if meth == 'pc' :
+        thePlot = ax.pcolor(x, y, maskedVals,
+                        cmap=ref_table, norm=norm, **kwargs)
+    elif meth == 'pcmesh' :
+        thePlot = ax.pcolormesh(x, y, maskedVals,
+                        cmap=ref_table, norm=norm, **kwargs)
+    elif meth == 'im' :
+        extent=(x.min(), x.max(), y.min(), y.max())
+        thePlot = ax.imshow(maskedVals,
                         cmap=ref_table, norm=norm,
-                        interpolation='nearest', origin='lower',
+                        interpolation='none', origin='lower',
                         extent=extent,
                         **kwargs)
+    else :
+        raise ValueError("Invalid method for MakePPI: %s" % meth)
 
+    thePlot.set_rasterized(rasterized)
     return thePlot
 
 
@@ -44,15 +76,18 @@ NWS_Reflect = {'ref_table': reflect_cmap,
                reflect_cmap.N, clip=False)}
 
 
-def MakeReflectPPI(vals, lats, lons, ax=None, cax=None, axis_labels=True, colorbar=True, **kwargs) :
+def MakeReflectPPI(vals, lats, lons,
+                   ax=None, cax=None,
+                   axis_labels=True, colorbar=True, **kwargs) :
     # The Lats and Lons should be parallel arrays to vals.
     if ax is None :
        ax = plt.gca()
 
-    thePlot = MakePPI(lons, lats, vals, NWS_Reflect['norm'], NWS_Reflect['ref_table'],
+    thePlot = MakePPI(lons, lats, vals,
+                      NWS_Reflect['norm'], NWS_Reflect['ref_table'],
                       ax=ax, **kwargs)
 
-    # I am still not quite sure if this is the best place for this, but oh well...
+    # I am still not quite sure if this is the best place for this...
     if axis_labels : 
        ax.set_xlabel("Longitude [deg]")
        ax.set_ylabel("Latitude [deg]")
