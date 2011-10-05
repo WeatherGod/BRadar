@@ -63,7 +63,8 @@ def LoadPAR_wdssii(filename) :
         xLoc = nc.variables['pixel_x'][:]
         yLoc = nc.variables['pixel_y'][:]
 
-        (aziLen, rangeLen) = (azimuths.shape[0], yLoc.max() + 1)
+        aziLen = azimuths.shape[0]
+        rangeLen = (yLoc.max() + 1) if len(yLoc) > 0 else 0
 
         parData = np.empty((aziLen, rangeLen))
         parData.fill(np.nan)
