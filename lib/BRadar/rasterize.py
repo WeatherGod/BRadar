@@ -1,26 +1,36 @@
 import numpy as np
+from matplotlib.nxutils import points_inside_poly
 from maputils import sph2latlon, latlon2pix, makerefmat
 
 
 def Rastify(statLat, statLon, origData, azimuths, 
-            rangeGates, elevAngle, deltaAz, deltaR, cellSize) :
+            rangeGates, elevAngle, deltaAz, deltaR,
+            cellSize=None, lonAxis=None, latAxis=None) :
     """
-    RASTIFY    Covert data in spherical domain into rectilinear lat/lon domain
+    RASTIFY    Covert data in spherical domain into rectilinear
+                lat/lon domain
 
-    Rastify(...) takes the vector or matrix of data points and places the
-    points into a 2-D matrix organized by latitudes and longitudes.  The
-    original data has a parallel vector or matrix of azimuths (in degrees North)
-    and rangeGates (in meters) as well as a scalar elevAngle (in degrees).
-    The origin of the spherical coordinates is given by the statLat (in
-    degrees North) and statLon (in degrees East).  deltaAz denotes the 
-    width of the beam in degrees while the deltaR scalar denotes the width 
-    the of range gate in meters.
+    Rastify(...) takes the vector or matrix of data points and places
+    the points into a 2-D matrix organized by latitudes and longitudes.
+    The original data has a parallel vector or matrix of azimuths (in
+    degrees North) and rangeGates (in meters) as well as a scalar elevAngle
+    (in degrees). The origin of the spherical coordinates is given by
+    the statLat (in degrees North) and statLon (in degrees East). deltaAz
+    denotes the width of the beam in degrees while the deltaR scalar
+    denotes the width the of range gate in meters.
 
-    The user specifies the resolution (in degrees) of the final product
-    using cellSize.
+    For the final grid, the user can specify the latitude and/or longitude
+    axes with the *lonAxis* and *latAxis* kwargs. For which ever axis not
+    specified, the user can specify a resultion (in degrees) with the
+    *cellSize* kwarg, and the axis will be automatically determined by
+    the limits of the supplied inputs.
 
     Author: Benjamin Root
     """
+    if (latAxis is None or lonAxis is None) and cellSize is None :
+        raise ValueError("Must specify *cellSize* if *latAxis* and/or"
+                         "*lonAxis* is not given")
+
     goodValsInds = ~np.isnan(origData).flatten()
     origData = origData.flatten().compress(goodValsInds)
     azimuths = azimuths.flatten().compress(goodValsInds)
@@ -32,18 +42,31 @@ def Rastify(statLat, statLon, origData, azimuths,
     deltaRMult = np.array([-1, 1, 1, -1])
     
     # Getting the lat/lon locations of all the verticies.
-    (tmpLat, tmpLon) = sph2latlon(statLat, statLon, 
-				  azimuths[:, np.newaxis] + (deltaAzMult[np.newaxis, :] * deltaAz),
-                  rangeGates[:, np.newaxis] + (deltaRMult[np.newaxis, :] * deltaR), 
-				  elevAngle)
-    
+    tmpLat, tmpLon = sph2latlon(statLat, statLon, 
+                                (azimuths[:, np.newaxis] +
+                                 (deltaAzMult[np.newaxis, :] * deltaAz)),
+                                (rangeGates[:, np.newaxis] +
+                                 (deltaRMult[np.newaxis, :] * deltaR)),
+                                elevAngle)
+
     # Automatically determine the domain,
     # note that this isn't friendly to crossing the prime-meridian.
-    latlim = (tmpLat.min(), tmpLat.max())
-    lonlim = (tmpLon.min(), tmpLon.max())
-    latAxis = np.arange(latlim[0], latlim[1] + cellSize, cellSize)
-    lonAxis = np.arange(lonlim[0], lonlim[1] + cellSize, cellSize)
-    
+    if latAxis is None :
+        latlim = (tmpLat.min(), tmpLat.max())
+        latAxis = np.arange(latlim[0], latlim[1] + cellSize, cellSize)
+    else :
+        latlim = (latAxis.min(), latAxis.max())
+
+    latRes = np.abs(np.median(np.diff(latAxis)))
+
+    if lonAxis is None :
+        lonlim = (tmpLon.min(), tmpLon.max())
+        lonAxis = np.arange(lonlim[0], lonlim[1] + cellSize, cellSize)
+    else :
+        lonlim = (lonAxis.min(), lonAxis.max())
+
+    lonRes = np.abs(np.median(np.diff(lonAxis)))
+
     # Automatically determine the grid size from the calculated axes.
     gridSize = (len(latAxis), len(lonAxis))
     
@@ -52,7 +75,7 @@ def Rastify(statLat, statLon, origData, azimuths,
     # This can be adjusted later to allow for the user to specify a
     # different resolution for x direction from the resolution in the y
     # direction.
-    R = makerefmat(lonlim[0], latlim[0], cellSize, cellSize)
+    R = makerefmat(lonlim[0], latlim[0], lonRes, latRes)
     
     # Getting the x and y locations for each and every verticies.
     (tmpy, tmpx) = latlon2pix(R, tmpLat, tmpLon)
@@ -72,18 +95,16 @@ def Rastify(statLat, statLon, origData, azimuths,
 
         # Getting all of the points that the polygon has, and then some.
         # This meshed grid is bounded by the domain.
-        (ygrid, xgrid) = np.meshgrid(range(max(np.floor(min(tmpy[index, :])), 0),
-                                           min(np.ceil(max(tmpy[index, :]) + 1), gridSize[0]),
-                                           1),
-        				range(max(np.floor(min(tmpx[index, :])), 0),
-					          min(np.ceil(max(tmpx[index, :]) + 1), gridSize[1]),
-                              1))                              
+        (ygrid, xgrid) = np.meshgrid(range(int(max(np.floor(min(tmpy[index, :])), 0)),
+                                           int(min(np.ceil(max(tmpy[index, :]) + 1), gridSize[0]))),
+                                     range(int(max(np.floor(min(tmpx[index, :])), 0)),
+					                       int(min(np.ceil(max(tmpx[index, :]) + 1), gridSize[1]))))
         gridPoints = zip(xgrid.flat, ygrid.flat)
 
         # Determines which points fall within the resolution volume.  These
         # points will be the ones that will be assigned the value of the
         # original data point that the resolution volume represents.
-        goodPoints = point_inside_polygon(gridPoints, resVol)
+        goodPoints = points_inside_poly(gridPoints, resVol)
 	
 
 	    # Assign values to the appropriate locations (the grid points that
