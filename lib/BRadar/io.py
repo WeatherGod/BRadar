@@ -325,4 +325,112 @@ def LoadRastRadar(infilename, force_int=False) :
             'vals': vals, 'scan_time': timestamp,
             'var_name': varName, 'station': station}
 
+class RadarCache(object) :
+    def __init__(self, files, cachewidth=3, load_func=None) :
+        """
+        Initialize a rolling caching reversible iterator object.
+
+        Each iteration returns the radar data loaded from the files.
+        If it is within the cache, then the data is loaded from memory.
+        If it is not within the cache, then load the data from the file.
+
+        *files*         list of strings
+            List of filenames containing radar data.
+
+        *cachewidth*    integer
+            Width of the rolling cache. Must be greater than one.
+
+        *load_func*     method
+            Function that takes a filename string and returns a radar
+            data dictionary.  If None, then default to
+            :func:`LoadRastRadar`.
+        """
+        if cachewidth < 2 :
+            raise ValueError("cachewidth must be greater than 1")
+
+        self._filenames = files
+        self._cachewidth = cachewidth
+        self._startIndex = 0
+        self._endIndex = 0
+        self._currIndex = 0
+        self._load_func = (load_func if load_func is not None else
+                           LoadRastRadar)
+
+        self._cacheIndex = 0
+        self._cacher = []
+
+    def __iter__(self) :
+        return self
+
+    def curr(self, lookahead=0) :
+        self._check_cache_state(lookahead)
+        return self._cacher[self._cacheIndex + lookahead]
+
+    def _check_cache_state(self, lookahead=0) :
+        """
+        advance or step back the cache if needed, and adjust the index
+        """
+        filename = self._filenames[self._currIndex + lookahead]
+        # are we on the right edge of the cache?
+        if (self._cacheIndex + lookahead) >= len(self._cacher) :
+            # is the cache at the maximum size?
+            if len(self._cacher) >= self._cachewidth :
+                self._cacher.pop(0)
+                self._cacheIndex -= 1
+
+            # add an item to the right edge of the cache
+            self._cacher.append(self._load_func(filename))
+
+        # are we on the left edge of the cache?
+        elif (self._cacheIndex + lookahead) < 0 :
+            # is the cache at the maximum size?
+            if len(self._cacher) >= self._cachewidth :
+                self._cacher.pop()
+
+            # add an item to the left edge of the cache
+            self._cacher.insert(0, self._load_func(filename))
+            self._cacheIndex += 1
+
+    def next(self) :
+        if self._currIndex < (len(self._filenames) - 1) :
+            self._currIndex += 1
+        else :
+            raise StopIteration
+
+        self._cacheIndex += 1
+        return self.curr()
+
+    def peek_next(self) :
+        """
+        Advance cache only if you absolutely have to.
+
+        If there is nothing next, then return None.
+        """
+        if self._currIndex >= (len(self._filenames) - 1) :
+            return None
+
+        return self.curr(1)
+
+    def prev(self) :
+        if self._currIndex > 0 :
+            self._currIndex -= 1
+        else :
+            raise StopIteration
+
+        self._cacheIndex -= 1
+        return self.curr()
+
+    def peek_prev(self) :
+        """
+        Step back the cache only if you absolutely have to.
+
+        If there is nothing previous, then return None.
+        """
+        if self._currIndex <= 0 :
+            return None
+
+        return self.curr(-1)
+
+    def __len__(self) :
+        return len(self._filenames)
 

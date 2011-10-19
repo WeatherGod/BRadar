@@ -3,6 +3,7 @@ from matplotlib.colorbar import ColorbarBase
 import numpy as np		# using .ma for Masked Arrays, also for .isnan()
 import matplotlib.pyplot as plt
 import ctables		# for color table for reflectivities
+from datetime import datetime
 
 
 def MakePPI(x, y, vals, norm, ref_table, ax=None, mask=None, 
@@ -120,4 +121,57 @@ def TightBounds(lons, lats, vals) :
     minLon = lons_masked.min()
     maxLon = lons_masked.max()
     return {'minLat': minLat, 'minLon': minLon, 'maxLat': maxLat, 'maxLon': maxLon}
+
+
+class RadarDisplay(object) :
+    def __init__(self, ax, radarData, xs=None, ys=None) :
+        """
+        Create a display for radar data.
+        """
+        self.ax = ax
+        self.radarData = radarData
+        self._im = None
+        self._title = None
+        self.frameIndex = 0
+        data = self.radarData.curr()
+        self.xs = xs if xs is not None else data['lons']
+        self.ys = ys if ys is not None else data['lats']
+        self.refresh_display()
+
+    def next(self) :
+        if ((self.frameIndex + 1) <= (len(self.radarData) - 1)) :
+            self.radarData.next()
+            self.frameIndex += 1
+            self.refresh_display()
+        
+    def prev(self) :
+        if (0 <= (self.frameIndex - 1)) :
+            self.radarData.prev()
+            self.frameIndex -= 1
+            self.refresh_display()
+
+    def refresh_display(self) :
+        """
+        Draw the display using the current value of *self.radarData*.
+        """
+        data = self.radarData.curr()
+
+        # Display current frame's radar image
+        if self._im is None :
+            self._im = MakeReflectPPI(data['vals'][0], self.ys, self.xs,
+                                      meth='pcmesh', ax=self.ax,
+                                      colorbar=False, axis_labels=False,
+                                      zorder=0, mask=False)
+        else :
+            self._im.set_array(data['vals'][0, :-1, :-1].flatten())
+
+
+        theDateTime = datetime.utcfromtimestamp(data['scan_time']).strftime(
+                                                        "%Y-%m-%d %H:%M:%S")
+
+        # Update axis title label
+        if self._title is None :
+            self._title = self.ax.set_title(theDateTime)
+        else :
+            self._title.set_text(theDateTime)
 
