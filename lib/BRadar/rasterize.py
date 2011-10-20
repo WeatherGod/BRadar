@@ -2,10 +2,12 @@ import numpy as np
 from matplotlib.nxutils import points_inside_poly
 from maputils import sph2latlon, latlon2pix, makerefmat
 
+from multiprocessing import Pool
 
 def Rastify(statLat, statLon, origData, azimuths, 
             rangeGates, elevAngle, deltaAz, deltaR,
-            cellSize=None, lonAxis=None, latAxis=None) :
+            cellSize=None, lonAxis=None, latAxis=None,
+            mask=False) :
     """
     RASTIFY    Covert data in spherical domain into rectilinear
                 lat/lon domain
@@ -31,10 +33,10 @@ def Rastify(statLat, statLon, origData, azimuths,
         raise ValueError("Must specify *cellSize* if *latAxis* and/or"
                          "*lonAxis* is not given")
 
-    goodValsInds = ~np.isnan(origData).flatten()
-    origData = origData.flatten().compress(goodValsInds)
-    azimuths = azimuths.flatten().compress(goodValsInds)
-    rangeGates = rangeGates.flatten().compress(goodValsInds)
+    goodVals = (~np.isnan(origData) | ~mask)
+    origData = origData[goodVals]
+    azimuths = azimuths[goodVals]
+    rangeGates = rangeGates[goodVals]
  
     # These arrays are for creating the verticies of the resolution volume
     # in 2-D.
@@ -68,9 +70,9 @@ def Rastify(statLat, statLon, origData, azimuths,
     lonRes = np.abs(np.median(np.diff(lonAxis)))
 
     # Automatically determine the grid size from the calculated axes.
-    gridSize = (len(latAxis), len(lonAxis))
+    gridShape = (len(latAxis), len(lonAxis))
     
-    # Reference matrix is used to perform the 'affine' transformation from
+    # Reference matrix is used to perform the affine transformation from
     # lat/lon to the x-y coordinates that we need.
     # This can be adjusted later to allow for the user to specify a
     # different resolution for x direction from the resolution in the y
@@ -78,46 +80,77 @@ def Rastify(statLat, statLon, origData, azimuths,
     R = makerefmat(lonlim[0], latlim[0], lonRes, latRes)
     
     # Getting the x and y locations for each and every verticies.
-    (tmpy, tmpx) = latlon2pix(R, tmpLat, tmpLon)
+    (tmpys, tmpxs) = latlon2pix(R, tmpLat, tmpLon)
     
     # I wonder if it is computationally significant to get the min/max's of
     # each polygon's coordinates in one shot.  What about storage
     # requirements?
     
     # Initializing the data matrix.
-    rastData = np.empty(gridSize)
+    rastData = np.empty(gridShape)
     rastData[:] = np.nan
-    
-    for index in xrange(0, len(origData)) :
-        resVol = zip(tmpx[index, [0, 1, 2, 3, 0]],
-                     tmpy[index, [0, 1, 2, 3, 0]])
 
+    #p = Pool(6)
+    #
+    #results = [p.apply_async(_raster_points,
+    #                         (tmpx,tmpy,gridShape)) for
+    #           tmpx, tmpy in zip(tmpxs, tmpys)]
 
-        # Getting all of the points that the polygon has, and then some.
-        # This meshed grid is bounded by the domain.
-        (ygrid, xgrid) = np.meshgrid(range(int(max(np.floor(min(tmpy[index, :])), 0)),
-                                           int(min(np.ceil(max(tmpy[index, :]) + 1), gridSize[0]))),
-                                     range(int(max(np.floor(min(tmpx[index, :])), 0)),
-					                       int(min(np.ceil(max(tmpx[index, :]) + 1), gridSize[1]))))
-        gridPoints = zip(xgrid.flat, ygrid.flat)
+    #p.close()
+    #p.join()
 
-        # Determines which points fall within the resolution volume.  These
-        # points will be the ones that will be assigned the value of the
-        # original data point that the resolution volume represents.
-        goodPoints = points_inside_poly(gridPoints, resVol)
-	
-
+    # Take the original data value, and assign it to each rasterized
+    # gridpoint that fall within its voxel.
+    #for tmpx, tmpy, val in zip(tmpxs, tmpys, origData) :
+    for tmpx, tmpy, val in zip(tmpxs, tmpys, origData) :
+        pts = _raster_points(tmpx, tmpy, gridShape)
+        #pts = res.get()
 	    # Assign values to the appropriate locations (the grid points that
         # were inside the polygon), given that the data value that might
         # already be there is less-than the value to-be-assigned, or if
         # there hasn't been a data-value assigned yet (NAN).
         # This method corresponds with the method used by NEXRAD.
-        for containedPoint in zip(ygrid.flat[goodPoints], xgrid.flat[goodPoints]) :
+        for containedPoint in zip(*pts) :
             if (np.isnan(rastData[containedPoint])
-                or (rastData[containedPoint] < origData[index])) :
-                rastData[containedPoint] = origData[index]
+                or (rastData[containedPoint] < val)) :
+                rastData[containedPoint] = val
 
     return (rastData, latAxis, lonAxis)
+
+def _raster_points(tmpx, tmpy, gridShape) :
+    """
+    Find the raster grid points that lie within the voxel
+    """
+    if (max(tmpx) < 0 or max(tmpy) < 0 or
+        min(tmpx) >= gridShape[1] or min(tmpy) >= gridShape[0]) :
+        # points lie outside the rasterization grid
+        # so, none of them are good.
+        return ([], [])
+
+    resVol = zip(tmpx[[0, 1, 2, 3, 0]],
+                 tmpy[[0, 1, 2, 3, 0]])
+
+    # Getting all of the points that the polygon has, and then some.
+    # This meshed grid is bounded by the domain.
+    bbox = ((int(max(np.floor(min(tmpy)), 0)),
+             int(min(np.ceil(max(tmpy)), gridShape[0] - 1))),
+            (int(max(np.floor(min(tmpx)), 0)),
+             int(min(np.ceil(max(tmpx)), gridShape[1] - 1))))
+    (ygrid, xgrid) = np.meshgrid(np.arange(bbox[0][0], bbox[0][1] + 1),
+                                 np.arange(bbox[1][0], bbox[1][1] + 1))
+    gridPoints = zip(xgrid.flat, ygrid.flat)
+
+    if len(gridPoints) == 0 :
+        print "Bad situation...:", bbox, gridShape, min(tmpy), max(tmpy), \
+                                                    min(tmpx), max(tmpx)
+        gridPoints = np.zeros((0, 2), dtype='i')
+
+    # Determines which points fall within the resolution volume.  These
+    # points will be the ones that will be assigned the value of the
+    # original data point that the resolution volume represents.
+    goodPoints = points_inside_poly(gridPoints, resVol)
+
+    return (ygrid.flat[goodPoints], xgrid.flat[goodPoints])
 
 
 def point_inside_polygon(pnts, poly):
