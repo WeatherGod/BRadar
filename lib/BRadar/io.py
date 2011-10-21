@@ -392,11 +392,10 @@ class RadarCache(object) :
             self._cacheIndex += 1
 
     def next(self) :
-        if self._currIndex < (len(self._filenames) - 1) :
-            self._currIndex += 1
-        else :
+        if self._currIndex >= (len(self) - 1) :
             raise StopIteration
 
+        self._currIndex += 1
         self._cacheIndex += 1
         return self.curr()
 
@@ -406,17 +405,16 @@ class RadarCache(object) :
 
         If there is nothing next, then return None.
         """
-        if self._currIndex >= (len(self._filenames) - 1) :
+        if self._currIndex >= (len(self) - 1) :
             return None
 
         return self.curr(1)
 
     def prev(self) :
-        if self._currIndex > 0 :
-            self._currIndex -= 1
-        else :
+        if self._currIndex <= 0 :
             raise StopIteration
 
+        self._currIndex -= 1
         self._cacheIndex -= 1
         return self.curr()
 

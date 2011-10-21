@@ -175,3 +175,58 @@ class RadarDisplay(object) :
         else :
             self._title.set_text(theDateTime)
 
+class BaseControlSys(object) :
+    def __init__(self, fig, rd) :
+        """
+        Create a control system for paging radar frames.
+
+        *fig*
+            The matplotlib figure object.
+
+        *rd*
+            The RadarDisplay object
+        """
+        self.fig = fig
+        self.rd = rd
+
+        fig.canvas.mpl_connect('key_press_event', self.process_key)
+        #fig.canvas.mpl_connect('button_release_event',
+        #                       self.process_click)
+
+
+        self.keymap = {'left' : {'func': self.step_back,
+                                 'help': "Step back display by one frame"},
+                       'right': {'func': self.step_forward,
+                                 'help': 'Step forward display by one frame'},
+                      }
+
+        self._clean_mplkeymap()
+
+
+    def _clean_mplkeymap(self) :
+        from matplotlib import rcParams
+        # TODO: Generalize this
+        # Need to remove some keys...
+        rcParams['keymap.fullscreen'] = []
+        rcParams['keymap.zoom'] = []
+        rcParams['keymap.save'] = []
+        for keymap in ('keymap.home', 'keymap.back', 'keymap.forward') :
+            for key in self.keymap :
+                if key in rcParams[keymap] :
+                    rcParams[keymap].remove(key)
+
+    def process_key(self, event) :
+        """
+        Key-press handler
+        """
+        if event.key in self.keymap :
+            self.keymap[event.key]['func']()
+            self.fig.canvas.draw_idle()
+
+    def step_back(self) :
+        self.rd.prev()
+
+    def step_forward(self) :
+        self.rd.next()
+
+
