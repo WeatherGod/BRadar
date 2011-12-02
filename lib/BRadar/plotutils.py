@@ -4,7 +4,7 @@ import numpy as np		# using .ma for Masked Arrays, also for .isnan()
 import matplotlib.pyplot as plt
 import ctables		# for color table for reflectivities
 from datetime import datetime
-
+from collections import OrderedDict
 
 def MakePPI(x, y, vals, norm, ref_table, ax=None, mask=None, 
             rasterized=False, meth='pcmesh', **kwargs):
@@ -194,11 +194,11 @@ class BaseControlSys(object) :
         #                       self.process_click)
 
 
-        self.keymap = {'left' : {'func': self.step_back,
-                                 'help': "Step back display by one frame"},
-                       'right': {'func': self.step_forward,
-                                 'help': 'Step forward display by one frame'},
-                      }
+        self.keymap = OrderedDict()
+        self.keymap['left'] = {'func': self.step_back,
+                               'help': "Step back display by one frame"}
+        self.keymap['right'] = {'func': self.step_forward,
+                                'help': 'Step forward display by one frame'}
 
         self._clean_mplkeymap()
 
