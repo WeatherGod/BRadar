@@ -48,7 +48,6 @@ def sph2latlon(locLat, locLon, azis, gates, elevAngle) :
    parallel to the spherical coordinates specified.
    Assumes that calculation applies to Earth.
 
-   (Double-check this statement)
    Also, does not account for curvature of planet when determining the ground
    distance covered by the radial.
    """
@@ -63,15 +62,43 @@ def GreatCircleDist(fromLons, fromLats, toLons, toLats, radius=6367470.0) :
     Output distance is in the same units as the input radius.
 
     By default, input radius is the earth's radius in Meters.
+    .. note ::
+        The default value here has very little basis in accepted literature.
+        When originally writing this function in C++, I merely took the
+        straight average between the equatorial radius and the polar radius.
+        A more valid value might be Q_r = 6372797.0 (equivalent great-circle
+        radius of an Earth ellipsoid). However, I fear that changing this now
+        might impact existing programs. Further investigations shall be done.
     """
     fromLons = np.radians(fromLons)
     fromLats = np.radians(fromLats)
     toLons = np.radians(toLons)
     toLats = np.radians(toLats)
 
+    # Haversine formula
     return(radius * 2.0 * np.arcsin(np.sqrt(np.sin((toLats - fromLats)/2.0) ** 2
                           + np.cos(fromLats) * np.cos(toLats)
                         * np.sin((toLons - fromLons)/2.0)**2)))
+
+def GreatCircleDist_Alt(fromLons, fromLats, toLons, toLats, radius=6367470.0) :
+    fromLons = np.radians(fromLons)
+    fromLats = np.radians(fromLats)
+    toLons = np.radians(toLons)
+    toLats = np.radians(toLats)
+
+    # Vincenty formula
+    c_toLats = np.cos(toLats)
+    c_fromLats = np.cos(fromLats)
+    s_toLats = np.sin(toLats)
+    s_fromLats = np.sin(fromLats)
+    deltaLons = toLons - fromLons
+
+    return radius * np.arctan2(np.sqrt((c_toLats * np.sin(deltaLons)) ** 2 +
+                                       (c_fromLats * s_toLats -
+                                        s_fromLats * c_toLats *
+                                        np.cos(deltaLons)) ** 2),
+                               (s_fromLats * s_toLats +
+                                c_fromLats * c_toLats * np.cos(deltaLons)))
 
 def Bearing(fromLons, fromLats, toLons, toLats) :
     """
@@ -90,11 +117,19 @@ def Bearing(fromLons, fromLats, toLons, toLats) :
                         np.sin(fromLats) * np.cos(toLats) *
                         np.cos(toLons - fromLons)) )
 
-def LatLonFrom(fromLat, fromLon, dist, azi, radius=6367470.0) :
+def LatLonFrom_Alt(fromLat, fromLon, dist, azi, radius=6367470.0) :
     """
     Input and output longitudes and latitudes are in DEGREES.
     
     RETURNS (toLat, toLon)
+
+    .. note ::
+        The default value here has very little basis in accepted literature.
+        When originally writing this function in C++, I merely took the
+        straight average between the equatorial radius and the polar radius.
+        A more valid value might be Q_r = 6372797.0 (equivalent great-circle
+        radius of an Earth ellipsoid). However, I fear that changing this now
+        might impact existing programs. Further investigations shall be done.
     """
     fromLat = np.radians(fromLat)
     fromLon = np.radians(fromLon)
@@ -102,11 +137,110 @@ def LatLonFrom(fromLat, fromLon, dist, azi, radius=6367470.0) :
 
     radianDist = dist/radius
 
-    toLat = np.arcsin(np.sin(fromLat)*np.cos(radianDist)
-               + np.cos(fromLat)*np.sin(radianDist)*np.cos(azi))
-    dlon = np.arctan2(-np.sin(azi)*np.sin(radianDist)*np.cos(fromLat),
-             np.cos(radianDist)-np.sin(fromLat)*np.sin(fromLat))
+    toLat = np.arcsin(np.sin(fromLat) * np.cos(radianDist) +
+                      np.cos(fromLat) * np.sin(radianDist) * np.cos(azi))
+    dlon = np.arctan2(-np.sin(azi) * np.sin(radianDist) * np.cos(fromLat),
+                      np.cos(radianDist) - np.sin(fromLat) * np.sin(fromLat))
     toLon = zero22pi(fromLon - dlon + np.pi) - np.pi
+    return np.degrees(toLat), np.degrees(toLon)
+
+def LatLonFrom(fromLat, fromLon, dist, azi, radius=6367470.0) :
+    """
+    Input and output longitudes and latitudes are in DEGREES.
+
+    RETURNS (toLat, toLon)
+
+    Uses the Vincenty's method, but assumes a perfect sphere in order to
+    be usable as an inverse of GreatCircleDist() and Bearing()
+
+    .. note ::
+        The default value here has very little basis in accepted literature.
+        When originally writing this function in C++, I merely took the
+        straight average between the equatorial radius and the polar radius.
+        A more valid value might be Q_r = 6372797.0 (equivalent great-circle
+        radius of an Earth ellipsoid). However, I fear that changing this now
+        might impact existing programs. Further investigations shall be done.
+    """
+
+    fromLat = np.radians(fromLat)
+    fromLon = np.radians(fromLon)
+    azi = np.radians(azi)
+
+    """
+    # Full Vincenty Method
+    a = 6378137.0
+    b = 6356752.3
+    f = (a - b) / b
+    t_U1 = (1 - f) * np.tan(fromLat)
+    U_1 = np.arctan(t_U1)
+    sigma_1 = np.arctan2(t_U1, np.cos(azi))
+    alpha = np.arcsin(np.cos(U_1) * np.sin(azi))
+    u_sqr = (np.cos(alpha)**2) * (a**2 - b**2) / b**2
+    A = 1 + ((u_sqr / 16384) *
+             (4096 + u_sqr *
+              (-768 + u_sqr *
+               (320 - 175 * u_sqr))))
+    B = (u_sqr / 1024) * (256 + u_sqr *
+                          (-128 + u_sqr *
+                           (74 - 47 * u_sqr)))
+
+    # Initial Guess
+    delta_sigma = 0.0
+    for i in xrange(20) :
+        print np.mean(delta_sigma)
+        sigma = dist / (b * A) + delta_sigma
+        sigma_m_2 = 2 * sigma_1 + sigma
+        delta_sigma = B * np.sin(sigma) * \
+                      (np.cos(sigma_m_2) + 0.25 * B *
+                       (np.cos(sigma) *
+                        (-1 + 2 * np.cos(sigma_m_2)**2) -
+                        0.166666 * B * np.cos(sigma_m_2) *
+                        (-3 + 4 * np.sin(sigma)**2) *
+                        (-3 + 4 * np.cos(sigma_m_2)**2)))
+    sigma = dist / (b * A) + delta_sigma
+    sigma_m_2 = 2 * sigma_1 + sigma
+
+    toLat = np.arctan2(np.sin(U_1) * np.cos(sigma) +
+                       np.cos(U_1) * np.sin(sigma) * np.cos(azi),
+                       np.sqrt(np.sin(alpha)**2 +
+                               (np.sin(U_1) * np.sin(sigma) -
+                                np.cos(U_1) * np.cos(sigma) * np.cos(azi))**2) *
+                       (1 - f))
+
+    lmbda = np.arctan2(np.sin(sigma) * np.sin(azi),
+                       np.cos(U_1) * np.cos(sigma) -
+                       np.sin(U_1) * np.sin(sigma) * np.cos(azi))
+    C = (f / 16) * np.cos(alpha)**2 * (4 + f * (4 - 3 * np.cos(alpha)**2))
+    L = lmbda - (1 - C) * f * np.sin(alpha) *\
+                (sigma + C * np.sin(sigma) *
+                 (np.cos(sigma_m_2) + C * np.cos(sigma) *
+                  (-1 + 2 * np.cos(sigma_m_2)**2)))
+    """
+    # Modified version of Vincenty's formula with the intention to minimize
+    # differences between LonLat2Cart(Cart2LonLat()) and
+    # Cart2LonLat(LonLat2Cart()) rather than being absolutely accurate in
+    # one, but not the other.
+    # Because LonLat2Cart() assumes a perfect sphere using GreatCircleDist(),
+    # This function will do the same.
+
+    # Assume perfect sphere  -- f = 0.0, a == b
+    alpha = np.arcsin(np.cos(fromLat) * np.sin(azi))
+
+    sigma = dist / radius
+    toLat = np.arctan2(np.sin(fromLat) * np.cos(sigma) +
+                       np.cos(fromLat) * np.sin(sigma) * np.cos(azi),
+                       np.sqrt(np.sin(alpha)**2 +
+                               (np.sin(fromLat) * np.sin(sigma) -
+                                np.cos(fromLat) * np.cos(sigma) *
+                                np.cos(azi))**2))
+
+    #toLat = np.arcsin(np.sin(fromLat) * np.cos(sigma) +
+    #                  np.cos(fromLat) * np.sin(sigma) * np.cos(azi))
+    lmbda = np.arctan2(np.sin(sigma) * np.sin(azi),
+                       np.cos(fromLat) * np.cos(sigma) -
+                       np.sin(fromLat) * np.sin(sigma) * np.cos(azi))
+
+    toLon = zero22pi(fromLon + lmbda + np.pi) - np.pi
 
     return (np.degrees(toLat), np.degrees(toLon))
 
@@ -114,6 +248,9 @@ def LonLat2Cart(st_lon, st_lat, lons, lats) :
     """
     Return the cartesian coordinates in km relative to
     *st_lon* and *st_lat*.
+
+    .. seealso ::
+        :func:`Cart2LonLat`     -- Inverse of LonLat2Cart()
     """
     dists = GreatCircleDist(st_lon, st_lat, lons, lats)
     bearings = Bearing(st_lon, st_lat, lons, lats)
@@ -121,6 +258,25 @@ def LonLat2Cart(st_lon, st_lat, lons, lats) :
     ys = dists * np.cos(bearings) / 1000.0
 
     return xs, ys
+
+def Cart2LonLat(st_lon, st_lat, xs, ys) :
+    """
+    Return the longitude/latitude coordinates in degrees relative to
+    *st_lon* and *st_lat*.
+
+    *xs* and *ys* are cartesian coordinates in km.
+
+    .. seealso ::
+        :func:`LonLat2Cart`     -- Inverse of Cart2LonLat()
+    """
+    # Yes, it is intentionally backwards because I want the angle
+    # with 0 degrees pointing north and increasing clock-wise
+    azimuth = np.arctan2(xs, ys)
+    gates = np.hypot(xs, ys)
+
+    lats, lons = LatLonFrom(st_lat, st_lon,
+                            gates * 1000.0, np.degrees(azimuth))
+    return lons, lats
 
 def npi2pi(inAngle) :
     return (np.pi * ((np.abs(inAngle)/np.pi) -
