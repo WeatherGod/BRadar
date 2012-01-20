@@ -359,6 +359,11 @@ class RadarCache(object) :
         self._cacheIndex = 0
         self._cacher = []
 
+    def _get_filename(self) :
+        return self._filenames[self._currIndex]
+
+    name = property(_get_filename, None, None, "Filename of current data")
+
     def __iter__(self) :
         return self
 
