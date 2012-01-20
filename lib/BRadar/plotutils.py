@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import ctables		# for color table for reflectivities
 from datetime import datetime
 from collections import OrderedDict
+from matplotlib.animation import FuncAnimation
+from BRadar.io import LoadRastRadar
 
 def MakePPI(x, y, vals, norm, ref_table, ax=None, mask=None, 
             rasterized=False, meth='pcmesh', **kwargs):
@@ -122,6 +124,26 @@ def TightBounds(lons, lats, vals) :
     maxLon = lons_masked.max()
     return {'minLat': minLat, 'minLon': minLon, 'maxLat': maxLat, 'maxLon': maxLon}
 
+
+class RadarAnim(FuncAnimation) :
+    def __init__(self, fig, files, load_func=None, **kwargs) :
+        self._rd = files
+        self._loadfunc = load_func if load_func is not None else LoadRastRadar
+        self._im = None
+        FuncAnimation.__init__(self, fig, self.nextframe, frames=len(files),
+                                     **kwargs)
+
+    def nextframe(self, index, *args) :
+        data = self._loadfunc(self._rd[index])
+        if self._im is None :
+            self._im = MakeReflectPPI(data['vals'][0],
+                                      data['lats'], data['lons'], meth='pcmesh',
+                                      axis_labels=False, zorder=0, mask=False)
+        else :
+            self._im.set_array(data['vals'][0, :-1, :-1].flatten())
+
+        return self._im,
+        
 
 class RadarDisplay(object) :
     def __init__(self, ax, radarData, xs=None, ys=None) :
