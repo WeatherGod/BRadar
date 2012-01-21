@@ -152,12 +152,13 @@ class RadarAnim(FuncAnimation) :
         FuncAnimation.__init__(self, fig, self.nextframe, frames=frames,
                                      **kwargs)
 
-    def add_axes(self, ax, zorder=0) :
+    def add_axes(self, ax, **kwargs) :
         """
-        Display the animation on Axes *ax*. Can also specify what *zorder* in
-        the axes it should be displayed at.
+        Display the animation on Axes *ax*. Can also specify what *kwargs* to
+        pass to the call of :func:`MakeReflectPPI` except 'meth', 'axis_labels',
+        'ax', and 'mask'.  Others such as 'zorder' and 'alpha' can be passed.
         """
-        self._new_axes.append((ax, zorder))
+        self._new_axes.append((ax, kwargs))
 
     def nextframe(self, index, *args) :
         data = self._loadfunc(self._rd[index])
@@ -165,11 +166,11 @@ class RadarAnim(FuncAnimation) :
         for im in self._ims :
             im.set_array(data['vals'][0, :-1, :-1].flatten())
 
-        for ax, zorder in self._new_axes :
+        for ax, kwargs in self._new_axes :
             self._ims.append(MakeReflectPPI(data['vals'][0],
                                             data['lats'], data['lons'],
                                             meth='pcmesh', axis_labels=False,
-                                            ax=ax, zorder=zorder, mask=False))
+                                            mask=False, ax=ax, **kwargs))
 
         # Reset the array
         self._new_axes = []
