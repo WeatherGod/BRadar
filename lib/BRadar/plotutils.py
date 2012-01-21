@@ -127,23 +127,55 @@ def TightBounds(lons, lats, vals) :
 
 class RadarAnim(FuncAnimation) :
     def __init__(self, fig, files, load_func=None, **kwargs) :
+        """
+        Create an animation object for viewing radar reflectivities.
+
+        *fig*           matplotlib Figure object
+        *files*         list of filenames containing the radar data
+        *load_func*     The function to use to load the data from a file.
+                        Must return a dictionary of 'vals' which contains
+                        the 3D numpy array (T by Y by X), 'lats' and 'lons'.
+        *frames*        The number of frames to display. If not given, then
+                        assume it is the same number as 'len(files)'.
+
+        All other kwargs for :class:`FuncAnimation` are also allowed.
+
+        To use, specify the axes to display the image on using :meth:`add_axes`.
+        """
         self._rd = files
         self._loadfunc = load_func if load_func is not None else LoadRastRadar
-        self._im = None
-        FuncAnimation.__init__(self, fig, self.nextframe, frames=len(files),
+        self._ims = []
+        self._new_axes = []
+        frames = kwargs.pop('frames', len(files))
+        if len(files) < frames :
+            raise ValueError("Not enough data files for the number of frames")
+        FuncAnimation.__init__(self, fig, self.nextframe, frames=frames,
                                      **kwargs)
+
+    def add_axes(self, ax, zorder=0) :
+        """
+        Display the animation on Axes *ax*. Can also specify what *zorder* in
+        the axes it should be displayed at.
+        """
+        self._new_axes.append((ax, zorder))
 
     def nextframe(self, index, *args) :
         data = self._loadfunc(self._rd[index])
-        if self._im is None :
-            self._im = MakeReflectPPI(data['vals'][0],
-                                      data['lats'], data['lons'], meth='pcmesh',
-                                      axis_labels=False, zorder=0, mask=False)
-        else :
-            self._im.set_array(data['vals'][0, :-1, :-1].flatten())
 
-        return self._im,
-        
+        for im in self._ims :
+            im.set_array(data['vals'][0, :-1, :-1].flatten())
+
+        for ax, zorder in self._new_axes :
+            self._ims.append(MakeReflectPPI(data['vals'][0],
+                                            data['lats'], data['lons'],
+                                            meth='pcmesh', axis_labels=False,
+                                            ax=ax, zorder=zorder, mask=False))
+
+        # Reset the array
+        self._new_axes = []
+
+        return self._ims
+
 
 class RadarDisplay(object) :
     def __init__(self, ax, radarData, xs=None, ys=None) :
