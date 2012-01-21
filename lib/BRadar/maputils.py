@@ -6,30 +6,50 @@ import numpy as np
 #    Basemap-related portion    #
 #-------------------------------#
 # Default Map display options
-mapLayers = [['states', {'linewidth':1.5, 'color':'k', 'zorder':0}],
-             ['counties', {'linewidth':0.5, 'color':'k', 'zorder':0}],
-             ['roads', {'linewidth':0.75, 'color':'r', 'zorder':0}],
-             ['rivers', {'linewidth':0.5, 'color':'b', 'zorder':0}]]
+mapLayers = [('states', {'linewidth':1.5, 'color':'k', 'zorder':0}),
+             ('counties', {'linewidth':0.5, 'color':'k', 'zorder':0}),
+             ('roads', {'linewidth':0.75, 'color':'r', 'zorder':0}),
+             ('rivers', {'linewidth':0.5, 'color':'b', 'zorder':0})]
 
+def PlotMapLayers(bmap, layerOptions=None, axis=None, **kwargs) :
+    """
+    Easily plot various map elements.
 
+    *bmap*          Basemap instance
+    *layerOptions*  list of tuples containing a shortcut name and
+                    a dictionary of style properties.
+                    Names can be 'states', 'counties', 'rivers',
+                                 'roads', and 'countries'.
+                    If none is given, `mapLayers` is used.
+    *axis*          Matplotlib axes object
+    *kwargs*        Any keywords you wish to use to override or augment
+                    the keywords used in *layerOptions*.
+    """
+    if layerOptions is None :
+        layerOptions = mapLayers
 
-def PlotMapLayers(map, layerOptions, axis=None):
+    # TODO: Learn to use pkg_resources
+    module_path = os.path.dirname(os.path.abspath(__file__))
 
     for layer in layerOptions :
+        style = layer[1].copy()
+        style.update(kwargs)
         if layer[0] == 'states' :
-            map.drawstates(ax=axis, **layer[1])
+            bmap.drawstates(ax=axis, **style)
         elif layer[0] == 'counties' :
-            map.readshapefile(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'shapefiles', 'countyp020'),
-                              name='counties', ax=axis, **layer[1])
+            bmap.readshapefile(os.path.join(module_path,
+                                            'shapefiles', 'countyp020'),
+                               name='counties', ax=axis, **style)
         elif layer[0] == 'rivers' :
-            map.drawrivers(ax=axis, **layer[1])
+            bmap.drawrivers(ax=axis, **style)
         elif layer[0] == 'roads' :
-            map.readshapefile(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'shapefiles', 'road_l'),
-                              name='road', ax=axis, **layer[1])
+            bmap.readshapefile(os.path.join(module_path,
+                                            'shapefiles', 'road_l'),
+                               name='road', ax=axis, **style)
         elif layer[0] == 'countries':
-            map.drawcountries(ax=axis, **layer[1])
+            bmap.drawcountries(ax=axis, **style)
         else :
-            raise TypeError('Unknown map_layer type: ' + layer[0])
+            raise ValueError('Unknown map_layer type: ' + layer[0])
 #------------------------------#
 ################################
 
