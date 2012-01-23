@@ -7,6 +7,7 @@ In other words, you will have three 2-D arrays: data, range gate [Meters], azimu
 import numpy as np
 import datetime
 from scipy.io import netcdf
+from os.path import basename
 
 class WDSSII_Error(Exception) : 
     def __init__(self, typeName) :
@@ -76,6 +77,7 @@ def LoadPAR_wdssii(filename) :
         (aziLen, rangeLen) = parData.shape
 
     else :
+        nc.close()
         raise WDSSII_Error(dataType)
 
     
@@ -210,7 +212,6 @@ def LoadLevel2(filename) :
                         scan in range(varData.shape[0])])
 
     # TODO: Temporary kludge until the station name is fixed in the file.
-    from os.path import basename
     siteLoc = ByName(basename(filename)[0:4])
 
     statLat = siteLoc[0]['LAT']
@@ -308,7 +309,23 @@ def LoadRastRadar(infilename, force_int=False) :
     try :
         station = nc.station
     except :
-        station = "NWRT"
+        # Try to find station name in the filename
+        fname = basename(infilename)
+        nameLoc = fname.index('K')
+        if nameLoc != -1 :
+            station = fname[nameLoc:nameLoc+4]
+            # Assuming that all stations has only alphabetical characters
+            # Any other name that starts with 'K' will be treated as invalid
+            if not (len(station) == 4 and station.isalpha() and
+                    station.isupper()) :
+                nc.close()
+                raise ValueError("Can't find name of station: " + fname)
+        else :
+            # Files for NWRT/PAR/MPAR obviously do not start with 'K'
+            if not ('NWRT' in fname or 'PAR' in fname) :
+                nc.close()
+                raise ValueError("Can't find name of station: " + fname)
+            station = "NWRT"
 
     lats = nc.variables['lat'][:]
     lons = nc.variables['lon'][:]
