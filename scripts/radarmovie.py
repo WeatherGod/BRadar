@@ -3,8 +3,6 @@ from BRadar.io import LoadRastRadar, LoadLevel2, LoadPAR_lipn, LoadPAR_wdssii
 import matplotlib.pyplot as plt
 import numpy as np
 
-
-
 def load_wrapper(fname, loadfunc) :
     radData = loadfunc(fname)
     az = np.radians(radData['azimuth'])
@@ -32,7 +30,8 @@ def main(args) :
         ax.set_theta_zero_location('N')
         ax.set_theta_direction('clockwise')
 
-    anim = RadarAnim(fig, args.radarfiles, load_func=_load_funcs[args.loadfunc])
+    anim = RadarAnim(fig, args.radarfiles, robust=args.robust,
+                     load_func=_load_funcs[args.loadfunc])
     anim.add_axes(ax)
 
 
@@ -62,6 +61,11 @@ if __name__ == '__main__' :
                         metavar="OUTPUT", default=None)
     parser.add_argument("--noshow", dest="doShow", action='store_false',
                         help="Do not display the animation to the screen")
+    parser.add_argument("--robust", dest="robust", action='store_true',
+                        help="Force the animation to not assume a consistant"
+                             " data size/shape and consistant domain."
+                             " Use this option if you are getting 'weird'"
+                             " rendering results.")
 
 
     args = parser.parse_args()

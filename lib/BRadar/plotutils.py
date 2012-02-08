@@ -126,7 +126,7 @@ def TightBounds(lons, lats, vals) :
 
 
 class RadarAnim(FuncAnimation) :
-    def __init__(self, fig, files, load_func=None, **kwargs) :
+    def __init__(self, fig, files, load_func=None, robust=False, **kwargs) :
         """
         Create an animation object for viewing radar reflectivities.
 
@@ -137,6 +137,11 @@ class RadarAnim(FuncAnimation) :
                         the 3D numpy array (T by Y by X), 'lats' and 'lons'.
         *frames*        The number of frames to display. If not given, then
                         assume it is the same number as 'len(files)'.
+        *robust*        Boolean (default: False) indicating whether or not
+                        we can assume all the data will be for the same domain.
+                        If you can't assume a consistant domain, then set
+                        *robust* to True.  This often happens for PAR data.
+                        Note that a robust rendering is slower.
 
         All other kwargs for :class:`FuncAnimation` are also allowed.
 
@@ -145,7 +150,9 @@ class RadarAnim(FuncAnimation) :
         self._rd = files
         self._loadfunc = load_func if load_func is not None else LoadRastRadar
         self._ims = []
+        self._im_kwargs = []
         self._new_axes = []
+        self._robust = robust
         frames = kwargs.pop('frames', len(files))
         if len(files) < frames :
             raise ValueError("Not enough data files for the number of frames")
@@ -163,16 +170,30 @@ class RadarAnim(FuncAnimation) :
     def nextframe(self, index, *args) :
         data = self._loadfunc(self._rd[index])
 
-        for im in self._ims :
-            im.set_array(data['vals'][0, :-1, :-1].flatten())
+        if not self._robust :
+            for im in self._ims :
+                im.set_array(data['vals'][0, :-1, :-1].flatten())
+        else :
+            for im, kwargs in zip(self._ims, self._im_kwargs) :
+                # Add this im object's axes object to _new_axes so
+                # that a completely new rendering is made.
+                self._new_axes.append((im.axes, kwargs))
+
+                # Remove the current rendering from the Axes
+                im.remove()
+
+            # Reset these arrays so that they can be refilled
+            self._ims = []
+            self._im_kwargs = []
 
         for ax, kwargs in self._new_axes :
+            self._im_kwargs.append(kwargs)
             self._ims.append(MakeReflectPPI(data['vals'][0],
                                             data['lats'], data['lons'],
                                             meth='pcmesh', axis_labels=False,
                                             mask=False, ax=ax, **kwargs))
 
-        # Reset the array
+        # Reset the "stack"
         self._new_axes = []
 
         return self._ims
