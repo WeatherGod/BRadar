@@ -131,12 +131,22 @@ class RadarAnim(FuncAnimation) :
         Create an animation object for viewing radar reflectivities.
 
         *fig*           matplotlib Figure object
+
         *files*         list of filenames containing the radar data
+
         *load_func*     The function to use to load the data from a file.
                         Must return a dictionary of 'vals' which contains
                         the 3D numpy array (T by Y by X), 'lats' and 'lons'.
+
+                        It is also optional that the loading function also
+                        provides a 'scan_time', either as a
+                        :class:`datetime.datetime` object or as an integer
+                        or a float representing the number of seconds since
+                        UNIX Epoch.
+
         *frames*        The number of frames to display. If not given, then
                         assume it is the same number as 'len(files)'.
+
         *robust*        Boolean (default: False) indicating whether or not
                         we can assume all the data will be for the same domain.
                         If you can't assume a consistant domain, then set
@@ -152,12 +162,24 @@ class RadarAnim(FuncAnimation) :
         self._ims = []
         self._im_kwargs = []
         self._new_axes = []
+        self._curr_time = None
         self._robust = robust
         frames = kwargs.pop('frames', len(files))
         if len(files) < frames :
             raise ValueError("Not enough data files for the number of frames")
         FuncAnimation.__init__(self, fig, self.nextframe, frames=frames,
                                      **kwargs)
+
+    @property
+    def curr_time(self) :
+        """
+        The :class:`datetime.datetime` object for the current frame's time.
+
+        Could possibly be None.
+
+        This is a read-only property.
+        """
+        return self._curr_time
 
     def add_axes(self, ax, **kwargs) :
         """
@@ -169,6 +191,14 @@ class RadarAnim(FuncAnimation) :
 
     def nextframe(self, index, *args) :
         data = self._loadfunc(self._rd[index])
+
+        currTime = data.get('scan_time', None)
+
+        if (currTime is not None and
+            not isinstance(currTime, datetime)) :
+            currTime = datetime.utcfromtimestamp(currTime)
+
+        self._curr_time = currTime
 
         if not self._robust :
             for im in self._ims :
@@ -208,6 +238,7 @@ class RadarDisplay(object) :
         self.radarData = radarData
         self._im = None
         self._title = None
+        self._curr_time = None
         self.frameIndex = 0
         data = self.radarData.curr()
         self.xs = xs if xs is not None else data['lons']
@@ -241,9 +272,16 @@ class RadarDisplay(object) :
         else :
             self._im.set_array(data['vals'][0, :-1, :-1].flatten())
 
+        self._curr_time = data.get('scan_time', None)
 
-        theDateTime = datetime.utcfromtimestamp(data['scan_time']).strftime(
-                                                        "%Y-%m-%d %H:%M:%S")
+        if (self._curr_time is not None and
+            not isinstance(currTime, datetime)) :
+            self._curr_time = datetime.utcfromtimestamp(self._curr_time)
+
+        if self._curr_time is not None :
+            theDateTime = self._curr_time.strftime("%Y-%m-%d %H:%M:%S")
+        else :
+            theDateTime = 'Unknown Date/Time'
 
         # Update axis title label
         if self._title is None :
