@@ -1,7 +1,9 @@
 """
 All of the loading functions will load the data into (theta, r) coordinates
+(except for LoadRastRadar()).
 They will also produce coordinate data that will be parallel to the data array.
-In other words, you will have three 2-D arrays: data, range gate [Meters], azimuth [DEGREES north]
+In other words, you will have three 2-D arrays: data, range gate [Meters],
+azimuth [DEGREES north].
 """
 
 import numpy as np
