@@ -3,10 +3,10 @@ from matplotlib.colorbar import ColorbarBase
 import numpy as np		# using .ma for Masked Arrays, also for .isnan()
 import matplotlib.pyplot as plt
 import ctables		# for color table for reflectivities
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import OrderedDict
 from matplotlib.animation import FuncAnimation
-from BRadar.io import LoadRastRadar
+from BRadar.io import LoadRastRadar, RadarCache
 
 def MakePPI(x, y, vals, norm, ref_table, ax=None, mask=None, 
             rasterized=False, meth='pcmesh', **kwargs):
@@ -126,7 +126,9 @@ def TightBounds(lons, lats, vals) :
 
 
 class RadarAnim(FuncAnimation) :
-    def __init__(self, fig, files, load_func=None, robust=False, **kwargs) :
+    def __init__(self, fig, files, load_func=None, robust=False,
+                       sps=600.0, time_markers=None,
+                       **kwargs) :
         """
         Create an animation object for viewing radar reflectivities.
 
@@ -144,31 +146,67 @@ class RadarAnim(FuncAnimation) :
                         or a float representing the number of seconds since
                         UNIX Epoch.
 
-        *frames*        The number of frames to display. If not given, then
-                        assume it is the same number as 'len(files)'.
-
         *robust*        Boolean (default: False) indicating whether or not
                         we can assume all the data will be for the same domain.
                         If you can't assume a consistant domain, then set
                         *robust* to True.  This often happens for PAR data.
                         Note that a robust rendering is slower.
 
+        *sps*           The rate of data time for each second displayed.
+                        Default: Show 10 minutes worth of data per second.
+
+        *time_markers*  A list of time offsets (in seconds) for each frame.
+                        If None, then autogenerate from the event_source
+                        and data.
+
         All other kwargs for :class:`FuncAnimation` are also allowed.
 
-        To use, specify the axes to display the image on using :meth:`add_axes`.
+        To use, specify the axes to display the image on using
+        :meth:`add_axes`. If no axes are added by draw time, then this class
+        will use the current axes by default with no extra keywords.
         """
-        self._rd = files
-        self._loadfunc = load_func if load_func is not None else LoadRastRadar
+        #self._rd = files
+        #self._loadfunc = load_func if load_func is not None else LoadRastRadar
+        self._rd = RadarCache(files, cachewidth=2, load_func=load_func,
+                              cyclable=True)
+
+        self.startTime = self.curr_time
+        self.endTime = self.prev_time
+
+
+
         self._ims = []
         self._im_kwargs = []
         self._new_axes = []
         self._curr_time = None
         self._robust = robust
-        frames = kwargs.pop('frames', len(files))
-        if len(files) < frames :
-            raise ValueError("Not enough data files for the number of frames")
-        FuncAnimation.__init__(self, fig, self.nextframe, frames=frames,
+        frames = kwargs.pop('frames', None)
+        #if len(files) < frames :
+        #    raise ValueError("Not enough data files for the number of frames")
+        FuncAnimation.__init__(self, fig, self.nextframe,
+                                     init_func=self.firstframe,
                                      **kwargs)
+
+
+        self._sps = sps
+
+        if time_markers is None :
+            # Convert milliseconds per frame to frames per second
+            self._fps = 1000.0 / self.event_source.interval
+            timelen = (self.endTime - self.startTime).total_seconds()
+            self.time_markers = np.arange(0.0, timelen +
+                                          (self._sps / self._fps),
+                                          self._sps / self._fps)
+        else :
+            self.time_markers = time_markers
+            self._fps = (len(time_markers) - 1) / ((self.time_markers[-1] -
+                                                    self.time_markers[0]) /
+                                                   self._sps)
+            self.event_source.interval = 1000.0 / self._fps
+
+        self.save_count = len(self.time_markers)
+
+        print self._fps, self.event_source.interval, min(self.time_markers), max(self.time_markers)
 
     @property
     def curr_time(self) :
@@ -179,26 +217,39 @@ class RadarAnim(FuncAnimation) :
 
         This is a read-only property.
         """
-        return self._curr_time
+        return self._get_time(self._rd.curr())
 
-    def add_axes(self, ax, **kwargs) :
+    @property
+    def prev_time(self) :
         """
-        Display the animation on Axes *ax*. Can also specify what *kwargs* to
-        pass to the call of :func:`MakeReflectPPI` except 'meth', 'axis_labels',
-        'ax', and 'mask'.  Others such as 'zorder' and 'alpha' can be passed.
+        Similar to :meth:`curr_time`.
         """
-        self._new_axes.append((ax, kwargs))
+        return self._get_time(self._rd.peek_prev())
 
-    def nextframe(self, index, *args) :
-        data = self._loadfunc(self._rd[index])
+    @property
+    def next_time(self) :
+        """
+        Similar to :meth:`curr_time`.
+        """
+        return self._get_time(self._rd.peek_next())
 
+    @staticmethod
+    def _get_time(data) :
         currTime = data.get('scan_time', None)
-
         if (currTime is not None and
             not isinstance(currTime, datetime)) :
             currTime = datetime.utcfromtimestamp(currTime)
 
-        self._curr_time = currTime
+        return currTime
+
+    def firstframe(self, *args) :
+        if len(self._ims) == 0 and len(self._new_axes) == 0 :
+            self.add_axes(plt.gca())
+        self._advance_anim()
+        return self._ims
+
+    def _advance_anim(self) :
+        data = next(self._rd)
 
         if not self._robust :
             for im in self._ims :
@@ -226,7 +277,32 @@ class RadarAnim(FuncAnimation) :
         # Reset the "stack"
         self._new_axes = []
 
-        return self._ims
+
+    def add_axes(self, ax, **kwargs) :
+        """
+        Display the animation on Axes *ax*. Can also specify what *kwargs* to
+        pass to the call of :func:`MakeReflectPPI` except 'meth', 'axis_labels',
+        'ax', and 'mask'.  Others such as 'zorder' and 'alpha' can be passed.
+        """
+        self._new_axes.append((ax, kwargs))
+
+    def nextframe(self, frameindex, *args) :
+        frametime = self.time_markers[frameindex % self.save_count]
+
+        if frametime >= (self.curr_time - self.startTime).total_seconds() :
+            print frameindex
+            while ((self.next_time - self.startTime).total_seconds() <
+                   frametime <
+                   (self.endTime - self.startTime).total_seconds()) :
+                # Dropping frames
+                self._rd.next()
+                print "Dropped:", str(self.curr_time)
+
+            print "CurrTime:", str(self.curr_time)
+            self._advance_anim()
+            return self._ims
+        else :
+            return None
 
 
 class RadarDisplay(object) :

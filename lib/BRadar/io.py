@@ -345,7 +345,7 @@ def LoadRastRadar(infilename, force_int=False) :
             'var_name': varName, 'station': station}
 
 class RadarCache(object) :
-    def __init__(self, files, cachewidth=3, load_func=None) :
+    def __init__(self, files, cachewidth=3, load_func=None, cyclable=False) :
         """
         Initialize a rolling caching reversible iterator object.
 
@@ -363,15 +363,20 @@ class RadarCache(object) :
             Function that takes a filename string and returns a radar
             data dictionary.  If None, then default to
             :func:`LoadRastRadar`.
+
+        *cyclable*      bool
+            Would this class behave like a cycle() object? Default: False.
         """
         if cachewidth < 2 :
             raise ValueError("cachewidth must be greater than 1")
 
         self._filenames = files
         self._cachewidth = cachewidth
-        self._startIndex = 0
-        self._endIndex = 0
+        #self._startIndex = 0
+        #self._endIndex = 0
         self._currIndex = 0
+        self._cyclable = cyclable
+        self._started = False
         self._load_func = (load_func if load_func is not None else
                            LoadRastRadar)
 
@@ -387,14 +392,23 @@ class RadarCache(object) :
         return self
 
     def curr(self, lookahead=0) :
+        #print len(self._cacher), self._cacheIndex, self._currIndex, lookahead
         self._check_cache_state(lookahead)
+        #print len(self._cacher), self._cacheIndex, self._currIndex, lookahead
         return self._cacher[self._cacheIndex + lookahead]
 
     def _check_cache_state(self, lookahead=0) :
         """
         advance or step back the cache if needed, and adjust the index
         """
-        filename = self._filenames[self._currIndex + lookahead]
+        if self._cyclable :
+            self._currIndex %= len(self._filenames)
+
+        fileindex = self._currIndex + lookahead
+        if self._cyclable :
+            fileindex %= len(self._filenames)
+
+        filename = self._filenames[fileindex]
         # are we on the right edge of the cache?
         if (self._cacheIndex + lookahead) >= len(self._cacher) :
             # is the cache at the maximum size?
@@ -415,12 +429,14 @@ class RadarCache(object) :
             self._cacher.insert(0, self._load_func(filename))
             self._cacheIndex += 1
 
-    def next(self) :
-        if self._currIndex >= (len(self) - 1) :
-            raise StopIteration
+        self._started = True
 
-        self._currIndex += 1
-        self._cacheIndex += 1
+    def next(self) :
+        if not self._cyclable and self._currIndex >= (len(self) - 1) :
+            raise StopIteration
+        if self._started :
+            self._currIndex += 1
+            self._cacheIndex += 1
         return self.curr()
 
     def peek_next(self) :
@@ -429,17 +445,18 @@ class RadarCache(object) :
 
         If there is nothing next, then return None.
         """
-        if self._currIndex >= (len(self) - 1) :
+        if not self._cyclable and self._currIndex >= (len(self) - 1) :
             return None
 
         return self.curr(1)
 
     def prev(self) :
-        if self._currIndex <= 0 :
+        if not self._cyclable and self._currIndex <= 0 :
             raise StopIteration
 
-        self._currIndex -= 1
-        self._cacheIndex -= 1
+        if self._started :
+            self._currIndex -= 1
+            self._cacheIndex -= 1
         return self.curr()
 
     def peek_prev(self) :
@@ -448,7 +465,7 @@ class RadarCache(object) :
 
         If there is nothing previous, then return None.
         """
-        if self._currIndex <= 0 :
+        if not self._cyclable and self._currIndex <= 0 :
             return None
 
         return self.curr(-1)
