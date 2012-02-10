@@ -275,7 +275,7 @@ class RadarDisplay(object) :
         self._curr_time = data.get('scan_time', None)
 
         if (self._curr_time is not None and
-            not isinstance(currTime, datetime)) :
+            not isinstance(self._curr_time, datetime)) :
             self._curr_time = datetime.utcfromtimestamp(self._curr_time)
 
         if self._curr_time is not None :
