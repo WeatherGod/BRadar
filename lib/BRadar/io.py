@@ -429,14 +429,14 @@ class RadarCache(object) :
             self._cacher.insert(0, self._load_func(filename))
             self._cacheIndex += 1
 
-        self._started = True
-
     def next(self) :
         if not self._cyclable and self._currIndex >= (len(self) - 1) :
             raise StopIteration
         if self._started :
             self._currIndex += 1
             self._cacheIndex += 1
+        else :
+            self._started = True
         return self.curr()
 
     def peek_next(self) :

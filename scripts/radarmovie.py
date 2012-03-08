@@ -10,6 +10,8 @@ from datetime import datetime
 #from mpl_toolkits.axes_grid1 import AxesGrid
 
 plt.rcParams['animation.writer'] = 'ffmpeg_file'
+#plt.rcParams['animation.codec'] = 'mpeg1video'
+#plt.rcParams['animation.ffmpeg_args'] = ['-sameq']
 
 def load_wrapper(fname, loadfunc) :
     radData = loadfunc(fname)
@@ -158,8 +160,9 @@ def main(args) :
     
     for index, (radarFiles, ax) in enumerate(zip(filelists, grid)) :
         anim = RadarAnim(fig, radarFiles, robust=args.robust,
-                         load_func=_load_funcs[args.loadfunc],
-                         event_source=event_source, time_markers=time_markers)
+                         load_func=_load_funcs[args.loadfunc], sps=600.0,
+                         event_source=event_source, time_markers=time_markers,
+                         blit=False)
         anim.add_axes(ax)
         anims.append(anim)
 
@@ -180,7 +183,8 @@ def main(args) :
 
     for anim, ax in zip(anims, grid) :
         text_anims.append(TitleAnim(anim, ax,
-                                    event_source=anim.event_source))
+                                    event_source=anim.event_source,
+                                    frames=len(time_markers)))
         #anim.event_source.add_callback(lambda i : _update_title(anim, i),
         #                               index)
 

@@ -127,7 +127,7 @@ def TightBounds(lons, lats, vals) :
 
 class RadarAnim(FuncAnimation) :
     def __init__(self, fig, files, load_func=None, robust=False,
-                       sps=600.0, time_markers=None,
+                       sps=None, time_markers=None,
                        **kwargs) :
         """
         Create an animation object for viewing radar reflectivities.
@@ -153,11 +153,11 @@ class RadarAnim(FuncAnimation) :
                         Note that a robust rendering is slower.
 
         *sps*           The rate of data time for each second displayed.
-                        Default: Show 10 minutes worth of data per second.
+                        Default: None (a data frame per display frame).
 
         *time_markers*  A list of time offsets (in seconds) for each frame.
                         If None, then autogenerate from the event_source
-                        and data.
+                        and data (unless *sps* is None).
 
         All other kwargs for :class:`FuncAnimation` are also allowed.
 
@@ -167,46 +167,52 @@ class RadarAnim(FuncAnimation) :
         """
         #self._rd = files
         #self._loadfunc = load_func if load_func is not None else LoadRastRadar
-        self._rd = RadarCache(files, cachewidth=2, load_func=load_func,
+        self._rd = RadarCache(files, cachewidth=3, load_func=load_func,
                               cyclable=True)
 
         self.startTime = self.curr_time
         self.endTime = self.prev_time
 
-
-
         self._ims = []
         self._im_kwargs = []
         self._new_axes = []
-        self._curr_time = None
+        #self._curr_time = None
         self._robust = robust
         frames = kwargs.pop('frames', None)
         #if len(files) < frames :
         #    raise ValueError("Not enough data files for the number of frames")
+        self.time_markers = None
         FuncAnimation.__init__(self, fig, self.nextframe,
-                                     init_func=self.firstframe,
+#                                     init_func=self.firstframe,
                                      **kwargs)
-
 
         self._sps = sps
 
         if time_markers is None :
             # Convert milliseconds per frame to frames per second
             self._fps = 1000.0 / self.event_source.interval
-            timelen = (self.endTime - self.startTime).total_seconds()
-            self.time_markers = np.arange(0.0, timelen +
-                                          (self._sps / self._fps),
-                                          self._sps / self._fps)
+            if self._sps is not None :
+                #timelen = (self.endTime - self.startTime)
+                timestep = timedelta(0, self._sps / self._fps)
+
+                currTime = self.startTime
+                self.time_markers = [currTime]
+                while currTime < self.endTime :
+                    currTime += timestep
+                    self.time_markers.append(currTime)
+            else :
+                # Don't even bother trying to make playback uniform.
+                self.time_markers = None
+
         else :
             self.time_markers = time_markers
-            self._fps = (len(time_markers) - 1) / ((self.time_markers[-1] -
-                                                    self.time_markers[0]) /
-                                                   self._sps)
+            self._fps = ((len(time_markers) - 1) /
+                         ((self.time_markers[-1] -
+                           self.time_markers[0]).total_seconds() / self._sps))
             self.event_source.interval = 1000.0 / self._fps
-
-        self.save_count = len(self.time_markers)
-
-        print self._fps, self.event_source.interval, min(self.time_markers), max(self.time_markers)
+        self.save_count = (len(self.time_markers) if 
+                           self.time_markers is not None else
+                           len(self._rd))
 
     @property
     def curr_time(self) :
@@ -243,8 +249,8 @@ class RadarAnim(FuncAnimation) :
         return currTime
 
     def firstframe(self, *args) :
-        if len(self._ims) == 0 and len(self._new_axes) == 0 :
-            self.add_axes(plt.gca())
+        #if len(self._ims) == 0 and len(self._new_axes) == 0 :
+        #    self.add_axes(plt.gca())
         self._advance_anim()
         return self._ims
 
@@ -287,13 +293,26 @@ class RadarAnim(FuncAnimation) :
         self._new_axes.append((ax, kwargs))
 
     def nextframe(self, frameindex, *args) :
+        if self.time_markers is None :
+            self._advance_anim()
+            print "CurrTime:", str(self.curr_time)
+            return self._ims
+
         frametime = self.time_markers[frameindex % self.save_count]
 
-        if frametime >= (self.curr_time - self.startTime).total_seconds() :
-            print frameindex
-            while ((self.next_time - self.startTime).total_seconds() <
-                   frametime <
-                   (self.endTime - self.startTime).total_seconds()) :
+        if frametime > self.endTime :
+            # We have no additional data to display.
+            # Just simply hold until frametime cycles
+            return None
+
+        if frameindex % self.save_count == 0 and frameindex > 0 :
+            # Force a cycling of the data
+            while self.startTime < self.curr_time <= self.endTime :
+                self._rd.next()
+                print "Skipping ahead:", str(self.curr_time)
+
+        if frametime >= self.curr_time :
+            while self.next_time < frametime < self.endTime :
                 # Dropping frames
                 self._rd.next()
                 print "Dropped:", str(self.curr_time)
