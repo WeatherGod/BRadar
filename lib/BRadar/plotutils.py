@@ -183,7 +183,7 @@ class RadarAnim(FuncAnimation) :
         #    raise ValueError("Not enough data files for the number of frames")
         self.time_markers = None
         FuncAnimation.__init__(self, fig, self.nextframe,
-#                                     init_func=self.firstframe,
+                                     init_func=self.firstframe,
                                      **kwargs)
 
         self._sps = sps
@@ -251,8 +251,9 @@ class RadarAnim(FuncAnimation) :
     def firstframe(self, *args) :
         #if len(self._ims) == 0 and len(self._new_axes) == 0 :
         #    self.add_axes(plt.gca())
-        self._advance_anim()
-        return self._ims
+        #self._advance_anim()
+        #return self._ims
+        pass
 
     def _advance_anim(self) :
         data = next(self._rd)
