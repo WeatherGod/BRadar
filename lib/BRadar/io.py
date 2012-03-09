@@ -369,8 +369,6 @@ class RadarCache(object) :
 
         self._filenames = files
         self._cachewidth = cachewidth
-        #self._startIndex = 0
-        #self._endIndex = 0
         self._currIndex = 0
         self._cyclable = cyclable
         self._started = False
@@ -387,6 +385,17 @@ class RadarCache(object) :
 
     def __iter__(self) :
         return self
+
+    def jump(self, index) :
+        """
+        Jump to *index* in the iterator.
+        This will clear the cache, though.
+        """
+        # TODO: maybe clear cache only if needed?
+        self._currIndex = index % len(self._filenames)
+        self._cacheIndex = 0
+        self._cacher = []
+        return self.curr()
 
     def curr(self, lookahead=0) :
         self._check_cache_state(lookahead)
@@ -449,8 +458,12 @@ class RadarCache(object) :
         if not self._cyclable and self._currIndex <= 0 :
             raise StopIteration
 
-        self._currIndex -= 1
-        self._cacheIndex -= 1
+        if self._started :
+            self._currIndex -= 1
+            self._cacheIndex -= 1
+        else :
+            self._currIndex -= 1
+            self._started = True
         return self.curr()
 
     def peek_prev(self) :

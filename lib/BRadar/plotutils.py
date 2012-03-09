@@ -332,7 +332,7 @@ class RadarDisplay(object) :
         self._title = None
         self._curr_time = None
         self.frameIndex = 0
-        data = self.radarData.curr()
+        data = next(self.radarData)
         self.xs = xs if xs is not None else data['lons']
         self.ys = ys if ys is not None else data['lats']
         self.refresh_display()
@@ -348,6 +348,29 @@ class RadarDisplay(object) :
             self.radarData.prev()
             self.frameIndex -= 1
             self.refresh_display()
+
+    def jump_forward(self, increm) :
+        """
+        Jump the frame forward *increm* frames, clipping
+        to the boundaries of the file list (i.e., no array
+        wrapping).
+        """
+        currIndex = self.frameIndex
+        index = max(min(currIndex + increm, len(self.radarData) - 1), 0)
+        # Must force it to be this class's jump_to method
+        # just in case of subclassing.
+        RadarDisplay.jump_to(self, index)
+        self.refresh_display()
+
+    def jump_to(self, index) :
+        """
+        Jump right to the frame *index*.
+        Normal indexing rules apply (i.e., *index* == -1 would
+        move to the last frame).
+        """
+        self.frameIndex = (index % len(self.radarData))
+        self.radarData.jump(index)
+        self.refresh_display()
 
     def refresh_display(self) :
         """
@@ -403,8 +426,19 @@ class BaseControlSys(object) :
         self.keymap = OrderedDict()
         self.keymap['left'] = {'func': self.step_back,
                                'help': "Step back display by one frame"}
+        self.keymap['up'] = self.keymap['left']
+        self.keymap['pageup'] = {'func': lambda : self.jump_forward(-5),
+                                 'help': "Jump back 5 frames"}
+        self.keymap['home'] = {'func': lambda : self.jump_to(0),
+                               'help': "Jump to the start frame"}
+
         self.keymap['right'] = {'func': self.step_forward,
                                 'help': 'Step forward display by one frame'}
+        self.keymap['down'] = self.keymap['right']
+        self.keymap['pagedown'] = {'func': lambda : self.jump_forward(5),
+                                   'help': "Jump forward 5 frames"}
+        self.keymap['end'] = {'func': lambda : self.jump_to(-1),
+                              'help': "Jump to the last frame"}
 
         self._clean_mplkeymap()
 
@@ -435,4 +469,18 @@ class BaseControlSys(object) :
     def step_forward(self) :
         self.rd.next()
 
+    def jump_forward(self, increm) :
+        """
+        Jump the frame forward *increm* frames, clipping
+        to the boundaries of the file list (i.e., no array
+        wrapping).
+        """
+        self.rd.jump_forward(increm)
 
+    def jump_to(self, index) :
+        """
+        Jump right to the frame *index*.
+        Normal indexing rules apply (i.e., *index* == -1 would
+        move to the last frame).
+        """
+        self.rd.jump_to(index)
