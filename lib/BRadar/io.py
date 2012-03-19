@@ -313,7 +313,7 @@ def LoadRastRadar(infilename, force_int=False) :
     except :
         # Try to find station name in the filename
         fname = basename(infilename)
-        nameLoc = fname.index('K')
+        nameLoc = fname.find('K')
         if nameLoc != -1 :
             station = fname[nameLoc:nameLoc+4]
             # Assuming that all stations has only alphabetical characters
