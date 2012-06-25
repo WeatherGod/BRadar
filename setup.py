@@ -15,7 +15,8 @@ setup(
     package_dir = {'': 'lib'},
     scripts = ['scripts/radarmovie.py',],
     package_data = {'BRadar': ['shapefiles/countyp020.*',
-                               'shapefiles/road_l.*']}
+                               'shapefiles/road_l.*']},
+    install_requires = ['numpy', 'scipy', 'matplotlib>=1.2', 'basemap',],
 
     )
 
