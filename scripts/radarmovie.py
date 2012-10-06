@@ -9,7 +9,7 @@ from datetime import datetime
 
 #from mpl_toolkits.axes_grid1 import AxesGrid
 
-plt.rcParams['animation.writer'] = 'ffmpeg_file'
+#plt.rcParams['animation.writer'] = 'ffmpeg_file'
 #plt.rcParams['animation.codec'] = 'mpeg1video'
 #plt.rcParams['animation.ffmpeg_args'] = ['-sameq']
 
@@ -132,23 +132,36 @@ def main(args) :
     if args.figsize is None :
         args.figsize = plt.figaspect(float(args.layout[0]) / args.layout[1])
 
-    fig = plt.figure(figsize=args.figsize)
     proj = _projections[args.loadfunc]
+    """
+    fig = plt.figure(figsize=args.figsize)
+
 
     if proj is None :
-        #grid = AxesGrid(fig, 111, nrows_ncols=args.layout, aspect=False,
-        #                     share_all=True)
-
-        grid = [fig.add_subplot(args.layout[0], args.layout[1],
-                                index + 1) for index in
-                range(np.prod(args.layout))]
-    else :
+        if args.shareall:
+            grid = AxesGrid(fig, 111, nrows_ncols=args.layout, aspect=False,
+                            share_all=True)
+        else:
+            grid = [fig.add_subplot(args.layout[0], args.layout[1],
+                                    index + 1) for index in
+                    range(np.prod(args.layout))]
+    elif proj == 'polar' :
         # Currently can't make an AxesGrid of PolarAxes
         grid = [fig.add_subplot(args.layout[0], args.layout[1],
                                 index + 1, polar=True) for index in
                 range(np.prod(args.layout))]
 
         for ax in grid :
+            ax.set_theta_zero_location('N')
+            ax.set_theta_direction('clockwise')
+    """
+    fig, grid = plt.subplots(args.layout[0], args.layout[1],
+                             sharex=args.shareall, sharey=args.shareall,
+                             subplot_kw=dict(projection=proj,axisbg='0.78'),
+                             figsize=args.figsize)
+
+    if proj == 'polar':
+        for ax in grid:
             ax.set_theta_zero_location('N')
             ax.set_theta_direction('clockwise')
 
@@ -185,8 +198,6 @@ def main(args) :
         text_anims.append(TitleAnim(anim, ax,
                                     event_source=anim.event_source,
                                     frames=len(time_markers)))
-        #anim.event_source.add_callback(lambda i : _update_title(anim, i),
-        #                               index)
 
 
 
@@ -237,6 +248,8 @@ if __name__ == '__main__' :
                         help="Specify the figure size (height x width)"
                              " in inches. Default: auto.",
                         metavar="X", default=None)
+    parser.add_argument("--shareall", action='store_true', default=False,
+                        help="Have the subplots share the same domain")
 
 
     args = parser.parse_args()
