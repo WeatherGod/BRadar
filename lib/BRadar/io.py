@@ -363,6 +363,9 @@ class RadarCache(object) :
             Function that takes a filename string and returns a radar
             data dictionary.  If None, then default to
             :func:`LoadRastRadar`.
+
+        *cyclable*      bool
+            Would this class behave like a cycle() object? Default: False.
         """
         if cachewidth < 2 :
             raise ValueError("cachewidth must be greater than 1")
@@ -398,7 +401,9 @@ class RadarCache(object) :
         return self.curr()
 
     def curr(self, lookahead=0) :
+        #print len(self._cacher), self._cacheIndex, self._currIndex, lookahead
         self._check_cache_state(lookahead)
+        #print len(self._cacher), self._cacheIndex, self._currIndex, lookahead
         return self._cacher[self._cacheIndex + lookahead]
 
     def _check_cache_state(self, lookahead=0) :
@@ -461,9 +466,9 @@ class RadarCache(object) :
         if self._started :
             self._currIndex -= 1
             self._cacheIndex -= 1
-        else :
-            self._currIndex -= 1
-            self._started = True
+        #else :
+        #    self._currIndex -= 1
+        #    self._started = True
         return self.curr()
 
     def peek_prev(self) :
