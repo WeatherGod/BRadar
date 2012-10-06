@@ -157,11 +157,12 @@ def main(args) :
     """
     fig, grid = plt.subplots(args.layout[0], args.layout[1],
                              sharex=args.shareall, sharey=args.shareall,
+                             squeeze=False,
                              subplot_kw=dict(projection=proj,axisbg='0.78'),
                              figsize=args.figsize)
 
     if proj == 'polar':
-        for ax in grid:
+        for ax in grid.flat:
             ax.set_theta_zero_location('N')
             ax.set_theta_direction('clockwise')
 
@@ -171,7 +172,7 @@ def main(args) :
     event_source = None
     time_markers = None
     
-    for index, (radarFiles, ax) in enumerate(zip(filelists, grid)) :
+    for index, (radarFiles, ax) in enumerate(zip(filelists, grid.flat)) :
         anim = RadarAnim(fig, radarFiles, robust=args.robust,
                          load_func=_load_funcs[args.loadfunc], sps=600.0,
                          event_source=event_source, time_markers=time_markers,
@@ -194,7 +195,7 @@ def main(args) :
     #                   load_func=_load_funcs[args.loadfunc])
     text_anims = []
 
-    for anim, ax in zip(anims, grid) :
+    for anim, ax in zip(anims, grid.flat) :
         text_anims.append(TitleAnim(anim, ax,
                                     event_source=anim.event_source,
                                     frames=len(time_markers)))
