@@ -1,12 +1,16 @@
+from __future__ import print_function
+
 from matplotlib.colors import BoundaryNorm
 from matplotlib.colorbar import ColorbarBase
 import numpy as np		# using .ma for Masked Arrays, also for .isnan()
 import matplotlib.pyplot as plt
-import ctables		# for color table for reflectivities
+
 from datetime import datetime, timedelta
 from collections import OrderedDict
 from matplotlib.animation import FuncAnimation
+
 from BRadar.io import LoadRastRadar, RadarCache
+import BRadar.ctables		# for color table for reflectivities
 
 def MakePPI(x, y, vals, norm, ref_table, ax=None, mask=None, 
             rasterized=False, meth='pcmesh', **kwargs):
@@ -293,7 +297,7 @@ class RadarAnim(FuncAnimation) :
     def nextframe(self, frameindex, *args) :
         if self.time_markers is None :
             self._advance_anim()
-            print "CurrTime:", str(self.curr_time)
+            print("CurrTime:", str(self.curr_time))
             return self._ims
 
         frametime = self.time_markers[frameindex % self.save_count]
@@ -307,15 +311,15 @@ class RadarAnim(FuncAnimation) :
             # Force a cycling of the data
             while self.startTime < self.curr_time <= self.endTime :
                 self._rd.next()
-                print "Skipping ahead:", str(self.curr_time)
+                print("Skipping ahead:", str(self.curr_time))
 
         if frametime >= self.curr_time :
             while self.next_time < frametime < self.endTime :
                 # Dropping frames
                 self._rd.next()
-                print "Dropped:", str(self.curr_time)
+                print("Dropped:", str(self.curr_time))
 
-            print "CurrTime:", str(self.curr_time)
+            print("CurrTime:", str(self.curr_time))
             self._advance_anim()
             return self._ims
         else :

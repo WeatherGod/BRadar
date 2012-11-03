@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from matplotlib.nxutils import points_inside_poly
 from maputils import sph2latlon, latlon2pix, makerefmat
@@ -141,8 +142,8 @@ def _raster_points(tmpx, tmpy, gridShape) :
     gridPoints = zip(xgrid.flat, ygrid.flat)
 
     if len(gridPoints) == 0 :
-        print "Bad situation...:", bbox, gridShape, min(tmpy), max(tmpy), \
-                                                    min(tmpx), max(tmpx)
+        print("Bad situation...:", bbox, gridShape, min(tmpy), max(tmpy), \
+                                                    min(tmpx), max(tmpx))
         gridPoints = np.zeros((0, 2), dtype='i')
 
     # Determines which points fall within the resolution volume.  These
