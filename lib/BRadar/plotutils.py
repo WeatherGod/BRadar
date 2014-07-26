@@ -10,7 +10,7 @@ from collections import OrderedDict
 from matplotlib.animation import FuncAnimation
 
 from BRadar.io import LoadRastRadar, RadarCache
-import BRadar.ctables		# for color table for reflectivities
+from BRadar import ctables		# for color table for reflectivities
 
 def MakePPI(x, y, vals, norm, ref_table, ax=None, mask=None, 
             rasterized=False, meth='pcmesh', **kwargs):
@@ -496,7 +496,10 @@ class BaseControlSys(object) :
         # Need to remove some keys...
         rcParams['keymap.fullscreen'] = []
         rcParams['keymap.zoom'] = []
+        rcParams['keymap.pan'] = []
         rcParams['keymap.save'] = []
+        rcParams['keymap.yscale'] = []
+        rcParams['keymap.xscale'] = []
         for keymap in ('keymap.home', 'keymap.back', 'keymap.forward') :
             for key in self.keymap :
                 if key in rcParams[keymap] :
