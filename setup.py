@@ -40,7 +40,7 @@ if sys.version_info[0] >= 3:
 
 setup(
     name = "BRadar",
-    version = "0.6.0",
+    version = "0.6.1",
     author = "Benjamin Root",
     author_email = "ben.v.root@gmail.com",
     description = "Utilities and scripts for processing and displaying"

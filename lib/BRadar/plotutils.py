@@ -186,7 +186,7 @@ class RadarAnim(FuncAnimation) :
         #if len(files) < frames :
         #    raise ValueError("Not enough data files for the number of frames")
         self.time_markers = None
-        FuncAnimation.__init__(self, fig, self.nextframe, frames=len(self._rd),
+        FuncAnimation.__init__(self, fig, self.nextframe, #frames=len(self._rd),
                                      init_func=self.firstframe,
                                      **kwargs)
 
